@@ -171,7 +171,22 @@ Full-screen browser on Display 1 (RPi5). Python FastAPI backend; browser communi
 
 ---
 
-## 8. Block Detection (Future — Phase 4)
+## 8. CAD Requirements for Physical Installation
+
+IoT components are bare PCBs and need enclosures or mounts for layout installation. CAD tasks should be planned alongside each firmware phase, not deferred.
+
+| Item | Qty | Notes |
+|------|-----|-------|
+| CYD fascia enclosure | 7 | Bezel + box for ESP32-2432S028R; panel-mounts on fascia at each station |
+| TO Signal ESP32 enclosure | 5 | Housing for bare ESP32 near TrainOrderServo mechanism (XP, BB, JC, MC, SK) |
+| ESP32-CAM mount | 7 | Camera bracket aimed at station scene; angle varies per location (Phase 3) |
+| RPi5 / PR3 server mount | 1 | Rack shelf or enclosure for central server hardware |
+
+Existing CADlayout parts (cable clips, generic boxes) should be evaluated for reuse before designing new enclosures.
+
+---
+
+## 9. Block Detection (Future — Phase 4)
 
 RFID readers at station approach tracks. Train carries RFID tag. Reader reports train ID to broker (`trains/block/{id}/state`). Dispatcher app pre-populates OS submission; station agent confirms.
 
@@ -179,7 +194,7 @@ Topology unchanged — RFID reader ESP32 nodes join layout WiFi as additional MQ
 
 ---
 
-## 9. Build Phases
+## 10. Build Phases
 
 | Phase | Scope |
 |-------|-------|
@@ -192,7 +207,7 @@ Topology unchanged — RFID reader ESP32 nodes join layout WiFi as additional MQ
 
 ---
 
-## 10. Open Questions / TBDs
+## 11. Open Questions / TBDs
 
 | # | Item | Question | Working Assumption |
 |---|------|----------|--------------------|
