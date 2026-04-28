@@ -1,0 +1,14 @@
+# Python artifacts (RR_Server)
+__pycache__/
+*.py[cod]
+.env
+venv/
+.venv/
+
+# Runtime state (generated at runtime, not source)
+RR_Server/fast_clock/clock_state.json
+
+# Editor / OS
+.DS_Store
+*~
+*.swp
