@@ -155,7 +155,7 @@ One message per addressed station. The `addressed_to` field lists all stations r
 
 ### 2.5 Clearance Forms
 
-Issued only at register stations: **XP** and **HC**. A clearance authorizes a train to proceed beyond the register point.
+Issued at **WP** (south terminus — departing trains), **XP** (register station), and **HC** (register / north terminus). A clearance authorizes a train to depart a terminus or proceed beyond a register point. All three stations have a Clearance screen on their CYD unit.
 
 #### `trains/clearance/{station_id}`
 **Direction:** Dispatcher UI → Station unit  

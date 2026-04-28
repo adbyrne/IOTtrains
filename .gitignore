@@ -8,6 +8,9 @@ venv/
 # Runtime state (generated at runtime, not source)
 RR_Server/fast_clock/clock_state.json
 
+# One-time debug / test scripts (use scratch/ folder, not tracked)
+scratch/
+
 # Editor / OS
 .DS_Store
 *~

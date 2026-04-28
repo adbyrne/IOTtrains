@@ -1,6 +1,6 @@
 # NY&E Northern Lights Subdivision — Layout Control System Architecture
 
-**Version:** 0.1 (draft for review)
+**Version:** 0.2 (draft for review)
 **Date:** 2026-04-28
 **Era:** circa 1905 — timetable and train order operations
 
@@ -40,7 +40,7 @@ One per station, fascia-mounted. Configured via serial provisioning (NVS storage
 
 | ID | Name | Type | TO Signal | Clearance Form |
 |----|------|------|-----------|----------------|
-| WP | Williamsport | Terminus / Dispatcher unit | No | No |
+| WP | Williamsport | Terminus / Dispatcher unit | No | Yes |
 | XP | Xina Pass | Register station | Yes | Yes |
 | BB | Becs Bend | Standard | Yes | No |
 | JC | Jacks Creek | Standard | Yes | No |
@@ -50,12 +50,14 @@ One per station, fascia-mounted. Configured via serial provisioning (NVS storage
 
 **Station unit screens (LVGL):**
 1. **Clock** — large fast clock display, station name (default/always visible)
-2. **OS** — train number + direction keypad, submit button (all except HC)
+2. **OS** — train number + direction keypad, submit button (all stations including termini)
 3. **Orders** — incoming TO text display, TO signal status indicator, ACK button
-4. **Clearance** — clearance form text display, ACK button (XP and HC only)
+4. **Clearance** — clearance form text display, ACK button (WP, XP, and HC)
 5. **Status** — WiFi/MQTT connection info, firmware version
 
-WP operates in dispatcher-assist mode: OS screen shows a live OS log instead of a submission form.
+WP operates in dispatcher-assist mode: the Clock screen also shows a live OS log strip (recent OS
+reports from all stations). The OS screen is available for trains departing and arriving at Williamsport.
+The Clearance screen displays departure clearances issued from WP.
 
 ### 2.3 TO Signal Controllers — ESP32 ×5
 
@@ -119,9 +121,9 @@ Full-screen browser on Display 1 (RPi5). Python FastAPI backend; browser communi
 ┌─────────────────────────────────────────────────────────────────┐
 │  10:42 AM  ●  [PAUSE]  [SET TIME]          NYE Layout Control   │
 ├──────┬──────┬──────┬──────┬──────┬──────┬──────────────────────┤
-│  WP  │  XP  │  BB  │  JC  │  MC  │  SK  │  HC                  │
-│      │ ◉ TO │ ◉ TO │ ◉ TO │ ◉ TO │ ◉ TO │                      │
-│      │  ◻ CL│      │      │      │  ◻ CL│  ◻ CL                │
+│  WP  │  XP  │  BB  │  JC  │  MC  │  SK  │  HC  │
+│ ◻ CL │ ◉ TO │ ◉ TO │ ◉ TO │ ◉ TO │ ◉ TO │ ◻ CL │
+│      │ ◻ CL │      │      │      │      │      │
 ├──────┴──────┴──────┴──────┴──────┴──────┴──────────────────────┤
 │  OS LOG                           │  ISSUE TRAIN ORDER          │
 │  10:38  Extra 42N OS at XP        │  To: [XP▼] [BB▼] [ ]       │
@@ -137,7 +139,7 @@ Full-screen browser on Display 1 (RPi5). Python FastAPI backend; browser communi
 - Station tiles show: TO signal status (raised ◉ / lowered ◻), clearance pending indicator, online/offline.
 - Clicking a station tile opens a detail panel (last OS, active orders, signal direct control).
 - Train orders: freeform text, one or multiple station recipients.
-- Clearance forms: issued to XP and HC (register stations); separate from TOs.
+- Clearance forms: issued to WP, XP, and HC (termini and register stations); separate from TOs.
 
 ---
 
@@ -151,17 +153,17 @@ Full-screen browser on Display 1 (RPi5). Python FastAPI backend; browser communi
 - Signal lowers when order is ACKed and dispatcher releases it (or manually).
 
 ### Clearance Forms
-- Issued at register stations: XP (interior) and HC (north terminus).
-- Required before a train proceeds beyond the register point.
-- Displayed on the station unit clearance screen.
-- WP (south terminus / shared): clearance handling TBD — may be handled as a yard departure, not a formal clearance form.
+- Issued at **WP** (south terminus — departing trains), **XP** (register station — trains proceeding north),
+  and **HC** (register / north terminus — trains returning south).
+- Required before a train departs a terminus or proceeds beyond a register point.
+- Displayed on the station unit clearance screen; agent ACKs when issued to the crew.
 
 ---
 
 ## 7. DCC and JMRI
 
 - **DCC system:** Digitrax DCS51 (primary command station/booster).
-- **JMRI:** Migrates to RPi5. Connects to DCS51 via LocoNet USB interface (PR3 or MS100 — **TBD**).
+- **JMRI:** Migrates to RPi5. Connects to DCS51 via LocoNet USB interface — **PR3**.
 - **SPROG RPis:** Remain as alternate/portable DCC system; not part of layout network.
 - **Engine Driver (phone throttles):** Connect to JMRI WiThrottle server on RPi5 (`192.168.10.1:12090`). Independent of MQTT.
 - **JMRI MQTT bridge:** JMRI publishes/subscribes to `trains/turnout/...` topics on the layout broker. Switch_Control firmware unchanged.
@@ -194,10 +196,7 @@ Topology unchanged — RFID reader ESP32 nodes join layout WiFi as additional MQ
 
 | # | Item | Question | Working Assumption |
 |---|------|----------|--------------------|
-| 1 | LocoNet interface | Which USB-LocoNet adapter for JMRI on RPi5? PR3 vs. MS100 | Confirm before Phase 1 complete |
-| 2 | RPi5 Ethernet | Connect RPi5 to home LAN via Ethernet for maintenance? | Yes, independent of layout WiFi |
-| 3 | SSID / password | Final layout WiFi credentials | NYE_Layout / TBD |
-| 4 | WP clearance | Does WP as south terminus need clearance forms, or handled as yard departure? | TBD |
-| 5 | OS at HC | HC is terminus — does the station agent OS trains arriving at HC, or is it dispatcher-logged? | TBD |
-| 6 | Session day | Does the railroad time include a day counter (Day 1, Day 2 of a session)? | Include day counter, default off |
-| 7 | TO signal auto-lower | When exactly does the signal lower — on ACK, or dispatcher releases manually? | Dispatcher releases manually (authentic) |
+| 1 | RPi5 Ethernet | Connect RPi5 to home LAN via Ethernet for maintenance? | Yes, independent of layout WiFi |
+| 2 | SSID / password | Final layout WiFi credentials | NYE_Layout / TBD |
+| 3 | Session day | Does the railroad time include a day counter (Day 1, Day 2 of a session)? | Include day counter, default off |
+| 4 | TO signal auto-lower | When exactly does the signal lower — on ACK, or dispatcher releases manually? | Dispatcher releases manually (authentic) |
