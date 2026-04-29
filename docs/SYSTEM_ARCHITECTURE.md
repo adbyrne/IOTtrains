@@ -1,6 +1,6 @@
 # NY&E Northern Lights Subdivision — Layout Control System Architecture
 
-**Version:** 0.2 (draft for review)
+**Version:** 0.3 (draft for review)
 **Date:** 2026-04-28
 **Era:** circa 1905 — timetable and train order operations
 
@@ -10,15 +10,40 @@
 
 - **Self-contained layout network** — RPi5 hosts the WiFi AP. No home LAN dependency during operation.
 - **MQTT as the message bus** — all inter-component communication; broker lives on RPi5.
+- **DCC for traction only** — Digitrax DCS51 provides track power and locomotive control exclusively. All stationary device control (turnouts, signals, lighting, staging) uses MQTT-based ESP32 nodes. JMRI bridges the two systems where needed. Block occupancy detection via DCC hardware is not planned.
 - **Prototypically authentic** — OS reports, train orders, clearance forms, TO signals, as per 1905 practice.
 - **Phased delivery** — infrastructure first, then operations, then automation and enhancements.
 - **Inventory-first hardware** — prefer ESP32 boards and RPis already in stock.
 
 ---
 
-## 2. System Components
+## 2. Layout Context
 
-### 2.1 Central Server — RPi5
+A brief physical and operational description to ground architecture decisions. Full detail in `Trains/docs/NYE_OPERATIONS.md`.
+
+**Railroad:** NY&E Railroad, Northern Lights Subdivision — freelanced branch on a C&O prototype basis, circa 1905.
+
+**Physical layout — two levels:**
+
+| Level | Content |
+|-------|---------|
+| Upper | C&O mainline — short modeled section between East staging and West staging |
+| Lower | NY&E Northern Lights Subdivision — WP (Williamsport) to HC (Hemlock Crest) |
+
+**Track topology:** Point-to-point, single main track. All seven stations have passing sidings. Southward trains are superior by direction.
+
+**Williamsport (WP) — Junction and yard:**
+- Junction between C&O upper level and NY&E lower level; shared station building
+- Physical yard with local industries on the NY&E side
+- C&O operations use East/West staging; trains enter and exit without through running
+
+**IoT scope:** The control system manages the NY&E branch (7 stations) and the WP yard. C&O staging tracks may receive independent treatment in a later phase.
+
+---
+
+## 3. System Components
+
+### 3.1 Central Server — RPi5
 
 Single RPi5 hosts all server-side software and acts as the WiFi AP.
 
@@ -34,7 +59,7 @@ Single RPi5 hosts all server-side software and acts as the WiFi AP.
 - Display 1 (primary): Dispatcher dashboard — fast clock, OS log, train order issuance, TO signal controls.
 - Display 2 (future Phase 3): Station camera grid.
 
-### 2.2 Station Units — ESP32 CYD (ESP32-2432S028R) ×7
+### 3.2 Station Units — ESP32 CYD (ESP32-2432S028R) ×7
 
 One per station, fascia-mounted. Configured via serial provisioning (NVS storage).
 
@@ -59,24 +84,24 @@ WP operates in dispatcher-assist mode: the Clock screen also shows a live OS log
 reports from all stations). The OS screen is available for trains departing and arriving at Williamsport.
 The Clearance screen displays departure clearances issued from WP.
 
-### 2.3 TO Signal Controllers — ESP32 ×5
+### 3.3 TO Signal Controllers — ESP32 ×5
 
 One per TO-signal station (XP, BB, JC, MC, SK). Controls the TrainOrderServo seesaw arm (existing CAD design). Receives raise/lower command from dispatcher via MQTT; reports state back.
 
 Reuses Switch_Control connection/reconnect pattern. Simple dedicated firmware (`TO_Signal` project).
 
-### 2.4 Turnout Controllers — ESP32 (Switch_Control, existing)
+### 3.4 Turnout Controllers — ESP32 (Switch_Control, existing)
 
 One per motorized turnout. JMRI-compatible `CLOSED`/`THROWN` topics on `trains/turnout/{id}/state`. No changes needed.
 
-### 2.5 Station Cameras — AI-Thinker ESP32-CAM ×7
+### 3.5 Station Cameras — AI-Thinker ESP32-CAM ×7
 
 **Inventory:** 10 bare modules + 8 programmer boards in stock — sufficient for all 7 stations.
 One per station. Streams MJPEG over HTTP. Publishes its stream URL to the broker on startup. Viewed on Dispatcher Display 2 in Phase 3.
 
 ---
 
-## 3. Network Topology
+## 4. Network Topology
 
 ```
 RPi5 — 192.168.10.1
@@ -100,7 +125,7 @@ The RPi5 may optionally have an Ethernet connection to the home LAN for SSH/main
 
 ---
 
-## 4. Fast Clock
+## 5. Fast Clock
 
 - **Ratio:** 3:1 (one real minute = three railroad minutes); configurable.
 - **Master:** Python service on RPi5 (single source of truth; no drift between displays).
@@ -111,7 +136,7 @@ The RPi5 may optionally have an Ethernet connection to the home LAN for SSH/main
 
 ---
 
-## 5. Dispatcher Web Application
+## 6. Dispatcher Web Application
 
 Full-screen browser on Display 1 (RPi5). Python FastAPI backend; browser communicates via WebSocket for live MQTT updates.
 
@@ -143,7 +168,7 @@ Full-screen browser on Display 1 (RPi5). Python FastAPI backend; browser communi
 
 ---
 
-## 6. Train Orders and Clearances
+## 7. Train Orders and Clearances
 
 ### Train Orders
 - Freeform text, authentic 1905 style.
@@ -160,7 +185,7 @@ Full-screen browser on Display 1 (RPi5). Python FastAPI backend; browser communi
 
 ---
 
-## 7. DCC and JMRI
+## 8. DCC and JMRI
 
 - **DCC system:** Digitrax DCS51 (primary command station/booster).
 - **JMRI:** Migrates to RPi5. Connects to DCS51 via LocoNet USB interface — **PR3**.
@@ -171,7 +196,7 @@ Full-screen browser on Display 1 (RPi5). Python FastAPI backend; browser communi
 
 ---
 
-## 8. CAD Requirements for Physical Installation
+## 9. CAD Requirements for Physical Installation
 
 IoT components are bare PCBs and need enclosures or mounts for layout installation. CAD tasks should be planned alongside each firmware phase, not deferred.
 
@@ -186,28 +211,30 @@ Existing CADlayout parts (cable clips, generic boxes) should be evaluated for re
 
 ---
 
-## 9. Block Detection (Future — Phase 4)
+## 10. RFID Train Detection (Future — Phase 4)
 
-RFID readers at station approach tracks. Train carries RFID tag. Reader reports train ID to broker (`trains/block/{id}/state`). Dispatcher app pre-populates OS submission; station agent confirms.
+RFID tags on locomotives and cabooses only (not all rolling stock). Readers at station approach tracks report the engine or caboose tag to the broker, providing the dispatcher app with a pre-populated OS suggestion. The station agent confirms.
 
-Topology unchanged — RFID reader ESP32 nodes join layout WiFi as additional MQTT publishers.
+This is an OS assistance tool, not a full block occupancy system. No DCC-based detection is planned.
+
+Topic: `trains/block/{block_id}/state` — reserved now so the namespace is established.
 
 ---
 
-## 10. Build Phases
+## 11. Build Phases
 
 | Phase | Scope |
 |-------|-------|
 | **1 — Infrastructure** | RPi5: AP, broker, fast clock. Station_OS: network migration, clock display. JMRI migration. |
 | **2 — Operations** | OS submission (station → dispatcher). TO issuance + display + ACK. Clearance forms. TO_Signal firmware + hardware. |
 | **3 — Camera Views** | ESP32-CAM firmware. Dispatcher Display 2 camera grid. |
-| **4 — Block Detection** | RFID at stations. Auto-populated OS. |
+| **4 — RFID Detection** | RFID readers at stations. Locomotive/caboose tags. Auto-populated OS suggestion. |
 | **5 — Lighting** | Station lighting via fast clock day/night cycle. |
 | **6 — Dispatcher Assist** | "Newbie mode": structured TO forms, timetable conflict hints. |
 
 ---
 
-## 11. Open Questions / TBDs
+## 12. Open Questions / TBDs
 
 | # | Item | Question | Working Assumption |
 |---|------|----------|--------------------|
@@ -215,3 +242,4 @@ Topology unchanged — RFID reader ESP32 nodes join layout WiFi as additional MQ
 | 2 | SSID / password | Final layout WiFi credentials | NYE_Layout / TBD |
 | 3 | Session day | Does the railroad time include a day counter (Day 1, Day 2 of a session)? | Include day counter, default off |
 | 4 | TO signal auto-lower | When exactly does the signal lower — on ACK, or dispatcher releases manually? | Dispatcher releases manually (authentic) |
+| 5 | C&O staging IoT | Do C&O East/West staging tracks need MQTT-controlled turnouts or DCC block routing? | Deferred — assess when layout reaches that stage |
