@@ -155,7 +155,7 @@ One message per addressed station. The `addressed_to` field lists all stations r
 
 ### 2.5 Clearance Forms
 
-Issued at **WP** (south terminus — departing trains), **XP** (register station), and **HC** (register / north terminus). A clearance authorizes a train to depart a terminus or proceed beyond a register point. All three stations have a Clearance screen on their CYD unit.
+Issued to **any station** where a train originates or a register point is reached. Standard clearance points are WP (south terminus), XP (register), and HC (north terminus/register). Any intermediate station may also receive a clearance when a train originates there (e.g. southbound return from SK). All CYD units have a Clearance screen; it activates when a clearance is received.
 
 #### `trains/clearance/{station_id}`
 **Direction:** Dispatcher UI → Station unit  
@@ -188,32 +188,41 @@ Issued at **WP** (south terminus — departing trains), **XP** (register station
 
 ### 2.6 TO Signal Control
 
-The dispatcher directly commands each TO signal arm. The TO_Signal controller reports its state back.
+Each TO-signal station has **two independent arms** — N (northbound) and S (southbound) — each driven by its own servo. The dispatcher commands each arm independently. The controller reports each arm's state back separately.
 
-#### `trains/signal/{station_id}/to/cmd`
+**TO-signal-capable stations:** XP, BB, JC, MC, SK  
+HC and WP do not have TO signal arms.
+
+#### `trains/signal/{station_id}/to/{dir}/cmd`
 **Direction:** Dispatcher UI → TO Signal controller  
 **QoS:** 1 | **Retained:** Yes  
-_(Retained so the signal recovers its commanded state on reconnect.)_
+**`{dir}`:** `N` (northbound arm) or `S` (southbound arm)  
+_(Retained so each arm recovers its commanded state on controller reconnect.)_
 
 ```json
 { "state": "raised" }
 { "state": "lowered" }
 ```
 
-#### `trains/signal/{station_id}/to/state`
+#### `trains/signal/{station_id}/to/{dir}/state`
 **Direction:** TO Signal controller → Dispatcher UI  
-**QoS:** 1 | **Retained:** Yes
+**QoS:** 1 | **Retained:** Yes  
+**`{dir}`:** `N` or `S`
 
 ```json
 {
   "state": "raised",
   "station_id": "BB",
+  "dir": "N",
   "rr_time": "10:30"
 }
 ```
 
-**TO-signal-capable stations:** XP, BB, JC, MC, SK  
-HC and WP do not have TO signal arms.
+**Examples:**
+- `trains/signal/BB/to/N/cmd` — raise/lower BB northbound arm
+- `trains/signal/BB/to/S/cmd` — raise/lower BB southbound arm
+- `trains/signal/BB/to/N/state` — BB northbound arm current state
+- `trains/signal/BB/to/S/state` — BB southbound arm current state
 
 ---
 
@@ -265,15 +274,15 @@ Block IDs TBD. Designed now so the topic namespace is reserved.
 | Topic | Pub | Sub | QoS | Retained |
 |-------|-----|-----|-----|----------|
 | `trains/clock/time` | Clock svc | Station units, UI | 0 | Yes |
-| `trains/clock/control` | UI | Clock svc | 1 | No |
+| `trains/clock/control` | UI | Clock svc, Station units | 1 | No |
 | `trains/station/{id}/status` | Station unit | UI | 1 | Yes |
 | `trains/os/{id}` | Station unit | UI | 1 | No |
 | `trains/to/{id}` | UI | Station unit | 2 | No |
 | `trains/to/{id}/ack` | Station unit | UI | 1 | No |
 | `trains/clearance/{id}` | UI | Station unit | 2 | No |
 | `trains/clearance/{id}/ack` | Station unit | UI | 1 | No |
-| `trains/signal/{id}/to/cmd` | UI | TO Signal ctrl | 1 | Yes |
-| `trains/signal/{id}/to/state` | TO Signal ctrl | UI | 1 | Yes |
+| `trains/signal/{id}/to/{dir}/cmd` | UI | TO Signal ctrl | 1 | Yes |
+| `trains/signal/{id}/to/{dir}/state` | TO Signal ctrl | UI | 1 | Yes |
 | `trains/turnout/{id}/state` | JMRI / Turnout ctrl | Both | 1 | Yes |
 | `trains/camera/{id}/url` | ESP32-CAM | UI | 0 | Yes |
 | `trains/block/{id}/state` | RFID node | UI | 1 | Yes |

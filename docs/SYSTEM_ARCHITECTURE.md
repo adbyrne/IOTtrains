@@ -51,7 +51,7 @@ Single RPi5 hosts all server-side software and acts as the WiFi AP.
 |---------|----------|------|
 | WiFi Access Point | hostapd + dnsmasq | — |
 | MQTT Broker | Mosquitto | 1883 |
-| Fast Clock | Python service | — (MQTT only) |
+| Fast Clock | Python service | — (MQTT master/control only) |
 | Dispatcher Web App | Python / FastAPI | 5000 |
 | JMRI | JMRI (Java) | 8080 (web), 12090 (WiThrottle) |
 
@@ -59,40 +59,48 @@ Single RPi5 hosts all server-side software and acts as the WiFi AP.
 - Display 1 (primary): Dispatcher dashboard — fast clock, OS log, train order issuance, TO signal controls.
 - Display 2 (future Phase 3): Station camera grid.
 
+**Fast Clock architecture:** The RPi5 service is the master — it maintains railroad time state and responds to control commands (set, start, pause, stop, sync). It publishes `trains/clock/time` ticks and rebroadcasts `trains/clock/control` commands. Each station CYD uses its ESP32's free-running timer to interpolate locally between ticks: `display_time = rr_sync + ratio × (now − real_sync)`. This gives smooth second-by-second display and resilience to brief WiFi outages. CYDs subscribe to both `trains/clock/time` (sync) and `trains/clock/control` (pause/start/set, applied immediately).
+
 ### 3.2 Station Units — ESP32 CYD (ESP32-2432S028R) ×7
 
 One per station, fascia-mounted. Configured via serial provisioning (NVS storage).
 
+**The dispatcher is a remote user** (separate room) operating the RPi5 web app. The WP station CYD is a standard fascia unit at Williamsport, not a dispatcher interface.
+
 | ID | Name | Type | TO Signal | Clearance Form |
 |----|------|------|-----------|----------------|
-| WP | Williamsport | Terminus / Dispatcher unit | No | Yes |
+| WP | Williamsport | South terminus | No | Yes |
 | XP | Xina Pass | Register station | Yes | Yes |
-| BB | Becs Bend | Standard | Yes | No |
-| JC | Jacks Creek | Standard | Yes | No |
-| MC | Michelles Cove | Standard | Yes | No |
-| SK | Stans Knob | Standard | Yes | No |
-| HC | Hemlock Crest | Register / Terminus | No | Yes |
+| BB | Becs Bend | Standard | Yes | * |
+| JC | Jacks Creek | Standard | Yes | * |
+| MC | Michelles Cove | Standard | Yes | * |
+| SK | Stans Knob | Standard | Yes | * |
+| HC | Hemlock Crest | Register / North terminus | No | Yes |
+
+_* Clearance issued when a train originates at this station (e.g. southbound return from an intermediate point)._
 
 **Station unit screens (LVGL):**
 1. **Clock** — large fast clock display, station name (default/always visible)
-2. **OS** — train number + direction keypad, submit button (all stations including termini)
-3. **Orders** — incoming TO text display, TO signal status indicator, ACK button
-4. **Clearance** — clearance form text display, ACK button (WP, XP, and HC)
+2. **OS** — train number + direction keypad, submit button (all stations)
+3. **Orders** — incoming TO text display, N/S TO signal arm status, ACK button
+4. **Clearance** — clearance form text display, ACK button (all stations; visible when a clearance is active)
 5. **Status** — WiFi/MQTT connection info, firmware version
-
-WP operates in dispatcher-assist mode: the Clock screen also shows a live OS log strip (recent OS
-reports from all stations). The OS screen is available for trains departing and arriving at Williamsport.
-The Clearance screen displays departure clearances issued from WP.
 
 ### 3.3 TO Signal Controllers — ESP32 ×5
 
-One per TO-signal station (XP, BB, JC, MC, SK). Controls the TrainOrderServo seesaw arm (existing CAD design). Receives raise/lower command from dispatcher via MQTT; reports state back.
+One per TO-signal station (XP, BB, JC, MC, SK). Each station's signal has **two arms** — one for northbound trains, one for southbound — controlled independently. The dispatcher raises the N or S arm based on which direction a train order applies to.
+
+Each controller drives two servos (one per arm) from a single ESP32. MQTT topics are direction-specific: `trains/signal/{id}/to/N/cmd` and `trains/signal/{id}/to/S/cmd`.
+
+The existing TrainOrderServo bracket (`CADlayout/Servo/`) is already designed for two arms and two servos. No new CAD design needed for the signal mechanism.
 
 Reuses Switch_Control connection/reconnect pattern. Simple dedicated firmware (`TO_Signal` project).
 
 ### 3.4 Turnout Controllers — ESP32 (Switch_Control, existing)
 
-One per motorized turnout. JMRI-compatible `CLOSED`/`THROWN` topics on `trains/turnout/{id}/state`. No changes needed.
+**Optional — most turnouts are hand-thrown** via the SwitchToggle fascia lever and Blue Point / Gold-N-Rod mechanical linkage (see `CADlayout/SwitchToggle/`). Switch_Control firmware is deployed only for specific motorized turnouts where remote or automated control is needed. Which turnouts are motorized is TBD pending physical layout construction.
+
+JMRI-compatible `CLOSED`/`THROWN` topics on `trains/turnout/{id}/state`.
 
 ### 3.5 Station Cameras — AI-Thinker ESP32-CAM ×7
 
@@ -146,9 +154,9 @@ Full-screen browser on Display 1 (RPi5). Python FastAPI backend; browser communi
 ┌─────────────────────────────────────────────────────────────────┐
 │  10:42 AM  ●  [PAUSE]  [SET TIME]          NYE Layout Control   │
 ├──────┬──────┬──────┬──────┬──────┬──────┬──────────────────────┤
-│  WP  │  XP  │  BB  │  JC  │  MC  │  SK  │  HC  │
-│ ◻ CL │ ◉ TO │ ◉ TO │ ◉ TO │ ◉ TO │ ◉ TO │ ◻ CL │
-│      │ ◻ CL │      │      │      │      │      │
+│  WP  │   XP   │   BB   │   JC   │   MC   │   SK   │  HC  │
+│ ◻ CL │ N◉ S◉ │ N◉ S◉ │ N◉ S◉ │ N◉ S◉ │ N◉ S◉ │ ◻ CL │
+│      │ ◻ CL  │        │        │        │        │      │
 ├──────┴──────┴──────┴──────┴──────┴──────┴──────────────────────┤
 │  OS LOG                           │  ISSUE TRAIN ORDER          │
 │  10:38  Extra 42N OS at XP        │  To: [XP▼] [BB▼] [ ]       │
@@ -161,10 +169,10 @@ Full-screen browser on Display 1 (RPi5). Python FastAPI backend; browser communi
 └───────────────────────────────────┴────────────────────────────-┘
 ```
 
-- Station tiles show: TO signal status (raised ◉ / lowered ◻), clearance pending indicator, online/offline.
+- Station tiles show: N and S TO signal arm status (raised ◉ / lowered ◻), clearance pending indicator, online/offline.
 - Clicking a station tile opens a detail panel (last OS, active orders, signal direct control).
 - Train orders: freeform text, one or multiple station recipients.
-- Clearance forms: issued to WP, XP, and HC (termini and register stations); separate from TOs.
+- Clearance forms: issued to any station; WP/XP/HC are standard clearance points, any station for originating trains.
 
 ---
 
@@ -178,10 +186,10 @@ Full-screen browser on Display 1 (RPi5). Python FastAPI backend; browser communi
 - Signal lowers when order is ACKed and dispatcher releases it (or manually).
 
 ### Clearance Forms
-- Issued at **WP** (south terminus — departing trains), **XP** (register station — trains proceeding north),
-  and **HC** (register / north terminus — trains returning south).
-- Required before a train departs a terminus or proceeds beyond a register point.
-- Displayed on the station unit clearance screen; agent ACKs when issued to the crew.
+- **Standard clearance points:** WP (south terminus), XP (register station), HC (north terminus/register).
+- **Any station:** a clearance is also issued when a train originates at an intermediate station (e.g. a southbound return train departing from SK or BB).
+- Required before a train departs a terminus, proceeds beyond a register point, or departs any originating station.
+- Displayed on the station unit clearance screen (Clearance screen active on all units); agent ACKs when issued to the crew.
 
 ---
 
@@ -243,3 +251,4 @@ Topic: `trains/block/{block_id}/state` — reserved now so the namespace is esta
 | 3 | Session day | Does the railroad time include a day counter (Day 1, Day 2 of a session)? | Include day counter, default off |
 | 4 | TO signal auto-lower | When exactly does the signal lower — on ACK, or dispatcher releases manually? | Dispatcher releases manually (authentic) |
 | 5 | C&O staging IoT | Do C&O East/West staging tracks need MQTT-controlled turnouts or DCC block routing? | Deferred — assess when layout reaches that stage |
+| 6 | Dispatcher secondary display | Does the dispatcher position need any physical display beyond the RPi5 web app (e.g. a CYD)? | Web app only — confirmed |
