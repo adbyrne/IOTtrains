@@ -1,7 +1,7 @@
 # NY&E Northern Lights Subdivision — Layout Control System Architecture
 
-**Version:** 0.3 (draft for review)
-**Date:** 2026-04-28
+**Version:** 0.5 (draft for review)
+**Date:** 2026-04-30
 **Era:** circa 1905 — timetable and train order operations
 
 ---
@@ -63,7 +63,10 @@ Single RPi5 hosts all server-side software and acts as the WiFi AP.
 
 ### 3.2 Station Units — ESP32 CYD (ESP32-2432S028R) ×7
 
-One per station, fascia-mounted. Configured via serial provisioning (NVS storage).
+One per station, fascia-mounted.
+
+**Station unit provisioning (NVS):**
+Each unit is provisioned once via USB serial before installation. Parameters: `station_id`, `wifi_ssid`, `wifi_password`, `mqtt_host`, `mqtt_port`, `mqtt_user`, `mqtt_pass`. Provisioning workflow and tooling TBD — dedicated session needed.
 
 **The dispatcher is a remote user** (separate room) operating the RPi5 web app. The WP station CYD is a standard fascia unit at Williamsport, not a dispatcher interface.
 
@@ -137,9 +140,10 @@ The RPi5 may optionally have an Ethernet connection to the home LAN for SSH/main
 
 - **Ratio:** 3:1 (one real minute = three railroad minutes); configurable.
 - **Master:** Python service on RPi5 (single source of truth; no drift between displays).
-- **Tick:** publishes `trains/clock/time` every 10 real seconds (= 30 railroad seconds).
-- **Controls:** dispatcher web app sends start / pause / set-time / reset commands via `trains/clock/control`.
-- **Session start:** dispatcher sets railroad time at session start (e.g., 8:00 AM); clock advances from there.
+- **Tick:** publishes `trains/clock/time` at a configurable interval; default 60 real seconds (= 3 railroad minutes). Tick interval is set via `trains/clock/control`. CYD units interpolate locally between ticks — tick frequency affects resync accuracy only, not display smoothness.
+- **Session start:** all station units must be online before the clock is started. Dispatcher sets railroad time (e.g., 8:00 AM) and starts the clock; all CYDs sync from the first tick.
+- **Mid-session restart:** a station that reboots mid-session publishes to `trains/clock/sync_request`; the clock service responds with an immediate tick so the restarting unit syncs without waiting for the next scheduled tick.
+- **Controls:** dispatcher web app sends start / pause / set-time / reset / speed / set_tick_interval commands via `trains/clock/control`.
 - **Persistence:** last-known state saved to disk; survives service restart.
 
 ---
@@ -252,3 +256,4 @@ Topic: `trains/block/{block_id}/state` — reserved now so the namespace is esta
 | 4 | TO signal auto-lower | When exactly does the signal lower — on ACK, or dispatcher releases manually? | Dispatcher releases manually (authentic) |
 | 5 | C&O staging IoT | Do C&O East/West staging tracks need MQTT-controlled turnouts or DCC block routing? | Deferred — assess when layout reaches that stage |
 | 6 | Dispatcher secondary display | Does the dispatcher position need any physical display beyond the RPi5 web app (e.g. a CYD)? | Web app only — confirmed |
+| 7 | WP Yardmaster unit | WP yardmaster needs a separate physical unit (CYD or RPi) for yard tasks and dispatcher communication. What info is displayed? What tasks does it handle? How does it integrate with the dispatcher web app? | Separate unit from WP fascia CYD — scope and design need a dedicated session |

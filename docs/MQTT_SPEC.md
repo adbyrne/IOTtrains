@@ -1,7 +1,7 @@
 # NY&E Layout Control System — MQTT Topic Specification
 
-**Version:** 0.1 (draft for review)
-**Date:** 2026-04-28
+**Version:** 0.2 (draft for review)
+**Date:** 2026-04-30
 **Broker:** Mosquitto on RPi5 at `192.168.10.1:1883`
 
 ---
@@ -26,7 +26,7 @@
 #### `trains/clock/time`
 **Direction:** Fast Clock service → All  
 **QoS:** 0 | **Retained:** Yes  
-Published every 10 real seconds while running.
+Published at a configurable interval (default: 60 real seconds) while running. CYD units interpolate locally between ticks; tick frequency affects resync accuracy only.
 
 ```json
 {
@@ -58,7 +58,15 @@ Published every 10 real seconds while running.
 { "action": "set",   "hour": 8, "minute": 0, "day": 1 }
 { "action": "reset" }
 { "action": "speed", "speed": 3 }
+{ "action": "set_tick_interval", "seconds": 60 }
 ```
+
+#### `trains/clock/sync_request`
+**Direction:** Station unit → Fast Clock service  
+**QoS:** 0 | **Retained:** No  
+**Payload:** `{"station_id": "BB"}`
+
+Published by a station unit that restarts mid-session and needs an immediate clock sync. The fast clock service responds by publishing an immediate `trains/clock/time` tick. Normal session start does not require this — all units must be online before the clock is started.
 
 ---
 
@@ -275,6 +283,7 @@ Block IDs TBD. Designed now so the topic namespace is reserved.
 |-------|-----|-----|-----|----------|
 | `trains/clock/time` | Clock svc | Station units, UI | 0 | Yes |
 | `trains/clock/control` | UI | Clock svc, Station units | 1 | No |
+| `trains/clock/sync_request` | Station unit | Clock svc | 0 | No |
 | `trains/station/{id}/status` | Station unit | UI | 1 | Yes |
 | `trains/os/{id}` | Station unit | UI | 1 | No |
 | `trains/to/{id}` | UI | Station unit | 2 | No |
