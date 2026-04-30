@@ -1,6 +1,6 @@
 # NY&E Layout Control System — MQTT Topic Specification
 
-**Version:** 0.2 (draft for review)
+**Version:** 0.3 (draft for review)
 **Date:** 2026-04-30
 **Broker:** Mosquitto on RPi5 at `192.168.10.1:1883`
 
@@ -30,7 +30,7 @@ Published at a configurable interval (default: 60 real seconds) while running. C
 
 ```json
 {
-  "time": "10:42",
+  "time": "10:42 AM",
   "hour": 10,
   "minute": 42,
   "day": 1,
@@ -41,10 +41,10 @@ Published at a configurable interval (default: 60 real seconds) while running. C
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `time` | string | Railroad time, HH:MM (24-hour) |
-| `hour` | int | 0–23 |
+| `time` | string | Railroad time, 12-hour AM/PM (e.g. "10:42 AM", "12:00 PM") — for display |
+| `hour` | int | 0–23 — for internal calculations |
 | `minute` | int | 0–59 |
-| `day` | int | Session day counter (1, 2, …) |
+| `day` | int | Day of week: 1=Monday … 7=Sunday; advances at railroad midnight |
 | `speed` | int | Clock multiplier (3 = 3:1) |
 | `running` | bool | False when paused |
 
@@ -60,6 +60,8 @@ Published at a configurable interval (default: 60 real seconds) while running. C
 { "action": "speed", "speed": 3 }
 { "action": "set_tick_interval", "seconds": 60 }
 ```
+
+`set` fields: `hour` 0–23, `minute` 0–59, `day` 1–7 (1=Monday). All three optional — omitted fields keep their current value. Typically used at session start to resume from saved state. Day or time override requires owner permission (enforced in the dispatcher UI, not the protocol).
 
 #### `trains/clock/sync_request`
 **Direction:** Station unit → Fast Clock service  

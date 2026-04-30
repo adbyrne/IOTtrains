@@ -1,6 +1,6 @@
 # NY&E Northern Lights Subdivision — Layout Control System Architecture
 
-**Version:** 0.5 (draft for review)
+**Version:** 0.6 (draft for review)
 **Date:** 2026-04-30
 **Era:** circa 1905 — timetable and train order operations
 
@@ -141,10 +141,13 @@ The RPi5 may optionally have an Ethernet connection to the home LAN for SSH/main
 - **Ratio:** 3:1 (one real minute = three railroad minutes); configurable.
 - **Master:** Python service on RPi5 (single source of truth; no drift between displays).
 - **Tick:** publishes `trains/clock/time` at a configurable interval; default 60 real seconds (= 3 railroad minutes). Tick interval is set via `trains/clock/control`. CYD units interpolate locally between ticks — tick frequency affects resync accuracy only, not display smoothness.
-- **Session start:** all station units must be online before the clock is started. Dispatcher sets railroad time (e.g., 8:00 AM) and starts the clock; all CYDs sync from the first tick.
+- **Time display:** 12-hour AM/PM format in all human-facing interfaces (TOs, clearance forms, dispatcher web app, station clocks) — consistent with 1905 railroad practice.
+- **Day of week:** the clock carries a day-of-week value (1=Monday … 7=Sunday). It advances automatically at railroad midnight. Month and year are not tracked — the owner selects the day at session start, which may represent any date (including holiday or seasonal sessions). Day changes require owner permission.
+- **Session continuity:** state (day, time, ratio) is persisted to disk. The next operating session resumes from exactly where the last one ended. A session may span multiple real-world evenings; the clock picks up from the saved state. The dispatcher controls start / pause / stop; day or time override requires owner permission.
+- **Session start:** all station units must be online before the clock is started. Dispatcher sets railroad day and time at session start (e.g., Monday 8:00 AM) from the saved state and starts the clock; all CYDs sync from the first tick.
 - **Mid-session restart:** a station that reboots mid-session publishes to `trains/clock/sync_request`; the clock service responds with an immediate tick so the restarting unit syncs without waiting for the next scheduled tick.
 - **Controls:** dispatcher web app sends start / pause / set-time / reset / speed / set_tick_interval commands via `trains/clock/control`.
-- **Persistence:** last-known state saved to disk; survives service restart.
+- **Timetable:** day of week determines which scheduled trains are active. Trains with day restrictions (e.g. Monday–Friday only) are a Phase 6 dispatcher-assist concern, but the day value is present from Phase 1.
 
 ---
 
@@ -248,12 +251,19 @@ Topic: `trains/block/{block_id}/state` — reserved now so the namespace is esta
 
 ## 12. Open Questions / TBDs
 
+### Open
+
 | # | Item | Question | Working Assumption |
 |---|------|----------|--------------------|
-| 1 | RPi5 Ethernet | Connect RPi5 to home LAN via Ethernet for maintenance? | Yes, independent of layout WiFi |
-| 2 | SSID / password | Final layout WiFi credentials | NYE_Layout / TBD |
-| 3 | Session day | Does the railroad time include a day counter (Day 1, Day 2 of a session)? | Include day counter, default off |
-| 4 | TO signal auto-lower | When exactly does the signal lower — on ACK, or dispatcher releases manually? | Dispatcher releases manually (authentic) |
-| 5 | C&O staging IoT | Do C&O East/West staging tracks need MQTT-controlled turnouts or DCC block routing? | Deferred — assess when layout reaches that stage |
-| 6 | Dispatcher secondary display | Does the dispatcher position need any physical display beyond the RPi5 web app (e.g. a CYD)? | Web app only — confirmed |
 | 7 | WP Yardmaster unit | WP yardmaster needs a separate physical unit (CYD or RPi) for yard tasks and dispatcher communication. What info is displayed? What tasks does it handle? How does it integrate with the dispatcher web app? | Separate unit from WP fascia CYD — scope and design need a dedicated session |
+
+### Resolved
+
+| # | Item | Decision |
+|---|------|----------|
+| 1 | RPi5 Ethernet | Yes — Ethernet to home LAN for maintenance; independent of layout WiFi |
+| 2 | SSID / password | SSID = `NYE_Layout`; password is config-time only, not in documentation |
+| 3 | Session day | Day of week (1=Mon … 7=Sun); auto-advances at railroad midnight; resumes from saved state each real session; dispatcher sets at session start; day/time override requires owner permission; timetable uses day for train scheduling |
+| 4 | TO signal auto-lower | Dispatcher releases manually — prototypically authentic |
+| 5 | C&O staging IoT | Deferred — assess when layout reaches that stage |
+| 6 | Dispatcher secondary display | Web app only |
