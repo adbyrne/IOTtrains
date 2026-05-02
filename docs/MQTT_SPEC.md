@@ -104,6 +104,7 @@ Published when the station agent submits an OS report via the CYD keypad.
 {
   "station_id": "BB",
   "train": "3",
+  "section": 0,
   "direction": "N",
   "extra": false,
   "rr_time": "10:41",
@@ -114,6 +115,7 @@ Published when the station agent submits an OS report via the CYD keypad.
 | Field | Type | Description |
 |-------|------|-------------|
 | `train` | string | Train number (e.g., "3") or engine number for extra trains |
+| `section` | int | Section number; `0` = not a sectioned train; `1`, `2`, … for each section |
 | `direction` | string | `"N"` or `"S"` |
 | `extra` | bool | True if extra train (not in timetable) |
 | `rr_time` | string | Railroad time of OS, from local clock state |
@@ -279,6 +281,62 @@ Block IDs TBD. Designed now so the topic namespace is reserved.
 
 ---
 
+### 2.10 Yard Messages
+
+Communication between the Dispatcher web app and the Yardmaster terminal (RPi3 + 7" touchscreen at Williamsport yard).
+
+#### `trains/yard/consist`
+**Direction:** Yardmaster terminal → Dispatcher UI  
+**QoS:** 1 | **Retained:** No
+
+Published when the Yardmaster submits a consist report. May be submitted multiple times as the consist is assembled and adjusted (e.g., a car is cut due to defect, or an empty is added). The `ready` flag set to `true` is the formal signal that the train is assembled and the crew is on board. A final submission with `ready: true` is required before the Dispatcher issues a departure clearance.
+
+```json
+{
+  "train": "3",
+  "engine": "101",
+  "caboose": "204",
+  "cars_loaded": 12,
+  "cars_empty": 5,
+  "ready": true,
+  "rr_time": "10:30",
+  "day": 1
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `train` | string | Train number, or engine number for extras |
+| `engine` | string | Engine number |
+| `caboose` | string | Caboose number |
+| `cars_loaded` | int | Count of loaded freight cars in consist |
+| `cars_empty` | int | Count of empty freight cars in consist |
+| `ready` | bool | `true` = train formally marked ready for departure |
+| `rr_time` | string | Railroad time of submission |
+| `day` | int | Session day |
+
+#### `trains/yard/notification`
+**Direction:** Dispatcher UI → Yardmaster terminal  
+**QoS:** 1 | **Retained:** No
+
+Sent by the Dispatcher to notify the Yardmaster of operational changes. The `type` field determines which additional fields are present.
+
+```json
+{ "type": "arrival",          "train": "24", "section": 0, "direction": "S", "expected_rr_time": "11:15", "day": 1 }
+{ "type": "departure_change", "train": "3",  "new_departure_rr_time": "04:15", "day": 1 }
+{ "type": "new_train",        "engine": "101", "direction": "N", "departure_rr_time": "06:00", "day": 1 }
+{ "type": "cancellation",     "train": "141", "day": 1 }
+```
+
+| `type` | Meaning | Key fields |
+|--------|---------|-----------|
+| `arrival` | Train inbound from XP; prepare yard track, align entrance switch | `train`, `section`, `direction`, `expected_rr_time` |
+| `departure_change` | Scheduled departure time adjusted | `train`, `new_departure_rr_time` |
+| `new_train` | Extra train authorized by Train Order | `engine`, `direction`, `departure_rr_time` |
+| `cancellation` | Scheduled train cancelled for this session | `train` |
+
+---
+
 ## 3. Topic Summary Table
 
 | Topic | Pub | Sub | QoS | Retained |
@@ -297,6 +355,8 @@ Block IDs TBD. Designed now so the topic namespace is reserved.
 | `trains/turnout/{id}/state` | JMRI / Turnout ctrl | Both | 1 | Yes |
 | `trains/camera/{id}/url` | ESP32-CAM | UI | 0 | Yes |
 | `trains/block/{id}/state` | RFID node | UI | 1 | Yes |
+| `trains/yard/consist` | Yardmaster | UI | 1 | No |
+| `trains/yard/notification` | UI | Yardmaster | 1 | No |
 
 ---
 
