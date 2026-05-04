@@ -1,7 +1,7 @@
 # NY&E Northern Lights Subdivision — Layout Control System Architecture
 
-**Version:** 0.6 (draft for review)
-**Date:** 2026-04-30
+**Version:** 1.0
+**Date:** 2026-05-04
 **Era:** circa 1905 — timetable and train order operations
 
 ---
@@ -21,7 +21,7 @@
 
 A brief physical and operational description to ground architecture decisions. Full detail in `Trains/docs/NYE_OPERATIONS.md`.
 
-**Railroad:** NY&E Railroad, Northern Lights Subdivision — freelanced branch on a C&O prototype basis, circa 1905.
+**Railroad:** New York and Eastern Railroad (NY&E), Northern Lights Subdivision — freelanced branch on a C&O prototype basis, circa 1905.
 
 **Physical layout — two levels:**
 
@@ -253,9 +253,7 @@ Topic: `trains/block/{block_id}/state` — reserved now so the namespace is esta
 
 ### Open
 
-| # | Item | Question | Working Assumption |
-|---|------|----------|--------------------|
-| 7 | WP Yardmaster unit | WP yardmaster needs a separate physical unit (CYD or RPi) for yard tasks and dispatcher communication. What info is displayed? What tasks does it handle? How does it integrate with the dispatcher web app? | Separate unit from WP fascia CYD — scope and design need a dedicated session |
+_No open questions._
 
 ### Resolved
 
@@ -267,3 +265,4 @@ Topic: `trains/block/{block_id}/state` — reserved now so the namespace is esta
 | 4 | TO signal auto-lower | Dispatcher releases manually — prototypically authentic |
 | 5 | C&O staging IoT | Deferred — assess when layout reaches that stage |
 | 6 | Dispatcher secondary display | Web app only |
+| 7 | WP Yardmaster unit | Separate physical unit from WP fascia CYD — RPi3 + RPi 7" Official Touchscreen (DSI). Scope defined in Implementation Plan Session 2.0: arrival notifications, NLS departure lineup, C&O schedule (read-only), consist report form, ready flag. Hardware must be ordered before Session 2.0. |

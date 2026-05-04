@@ -20,8 +20,8 @@
 - **Completion:** clock runs headlessly, publishes ticks on schedule, survives restart from saved state
 
 ### Session 1.2a — Timetable Loader
-- Define timetable JSON format: multi-subdivision (NLS + C&O East Central), all named locations with type metadata
-- Seed `timetable.json` from Timetable No. 4 (December 31, 1904) — source: `NYELayoutDocs/alt/timetable.pdf`
+- Timetable JSON format defined: see `docs/TIMETABLE_FORMAT.md` (v0.1 draft, open questions remain)
+- Seed `timetable.json` from Timetable No. 4 (December 31, 1904) — source: `NYELayoutDocs/alt/timetable4.pdf`
 - Server loads active timetable on startup (read-only during operations)
 - Read-only timetable API endpoint used by dispatcher UI and yardmaster page
 - **Completion:** server loads timetable; API returns train schedules by location; next-train queries work
