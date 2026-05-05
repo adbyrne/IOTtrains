@@ -1,7 +1,7 @@
 # NY&E Northern Lights Subdivision — Layout Control System Architecture
 
-**Version:** 1.0
-**Date:** 2026-05-04
+**Version:** 1.1
+**Date:** 2026-05-05
 **Era:** circa 1905 — timetable and train order operations
 
 ---
@@ -178,7 +178,7 @@ Full-screen browser on Display 1 (RPi5). Python FastAPI backend; browser communi
 
 - Station tiles show: N and S TO signal arm status (raised ◉ / lowered ◻), clearance pending indicator, online/offline.
 - Clicking a station tile opens a detail panel (last OS, active orders, signal direct control).
-- Train orders: freeform text, one or multiple station recipients.
+- Train orders: structured templates — dispatcher selects TO type, system prompts for required fields, generates formatted text. TO types defined in the management function. Dispatcher reviews the completed form on screen and copies to their paper log before sending to selected stations.
 - Clearance forms: issued to any station; WP/XP/HC are standard clearance points, any station for originating trains.
 
 ---
@@ -186,11 +186,18 @@ Full-screen browser on Display 1 (RPi5). Python FastAPI backend; browser communi
 ## 7. Train Orders and Clearances
 
 ### Train Orders
-- Freeform text, authentic 1905 style.
-- Dispatcher types the order, selects one or more destination stations, issues.
+- Structured templates: dispatcher selects a TO type, fills in required fields, system generates the formatted order text.
+- TO types (meet, wait, running extra authorization, work extra authorization, speed restriction, etc.) are defined in the management function — see management tools planning.
+- Dispatcher reviews the completed form on screen, copies to their paper log, then issues to selected stations.
 - Each destination station receives the order text; station agent ACKs when copied.
-- TO signal arm raises automatically when order is issued (dispatcher can override manually).
-- Signal lowers when order is ACKed and dispatcher releases it (or manually).
+- TO signal arm raises automatically when order is issued; dispatcher lowers manually (prototypically authentic — signal stays up until dispatcher releases).
+- The dispatcher maintains a paper log of all TOs issued and their ACK status. The digital TO log is a convenience reference, not the authority.
+
+### Extra Trains
+- **Running extras:** authorized by a running-extra TO type. System calculates a reference schedule from segment travel times (class 3 freight speed). Dispatcher copies schedule to paper; system tracks the extra in an active extras list. Extra identity = engine number ("Extra 42 North").
+- **Work extras:** authorized by a work-extra TO type. Occupy a track section between two stations for a defined time window. No schedule calculated. Dispatcher issues TOs to all trains that would cross that section during the window.
+- **12-hour authority:** a scheduled train's timetable authority expires 12 hours after its scheduled time at each station. After that it must operate as an extra with a new TO and clearance. Rare during ops sessions; no system enforcement in Phases 1–2.
+- **Pre-session determination:** the Trainmaster function identifies which extras are needed; the Dispatcher (owner role pre-session) authorizes them. The actual TO issuance occurs during the session at the appropriate time.
 
 ### Clearance Forms
 - **Standard clearance points:** WP (south terminus), XP (register station), HC (north terminus/register).
@@ -200,7 +207,32 @@ Full-screen browser on Display 1 (RPi5). Python FastAPI backend; browser communi
 
 ---
 
-## 8. DCC and JMRI
+## 8. Operating Roles
+
+Four roles interact with the layout control system. The same person may fill multiple roles in a small ops session.
+
+| Role | When | Function | System interface |
+|------|------|----------|-----------------|
+| **Dispatcher** | Live ops | Controls main line movements. Issues TOs and clearances. Manages meets and extras. | Dispatcher web app (`/`) on RPi5 Display 1 |
+| **Yardmaster** | Live ops | Controls WP yard exclusively. Builds consists, assigns yard tracks, manages arrivals and departures. Submits consist reports. | Yardmaster terminal (`/yard`) — RPi3 + 7" DSI touchscreen |
+| **Trainmaster** | Pre-session | Reviews waybills (CC&W system), generates train manifests and work orders for the session, identifies extras needed. Produces `session.json`. | Desktop/laptop management tool (not a live layout system) |
+| **Owner** | Pre-session + monitoring | Loads `session.json`, verifies system health before handing to Dispatcher. Monitors system status during ops (read-only). Generates post-session report. | Owner page (`/owner`) — accessible from any device on layout WiFi |
+
+### Owner function detail
+The owner page is **monitoring and reporting only** — no operational controls. The Dispatcher controls all live operations.
+
+- **Pre-session:** load `session.json`; confirm all services up; confirm station units online.
+- **During session:** read-only view — service health (rr-clock, rr-dispatcher, mosquitto, jmri), station unit connectivity, MQTT broker stats, session elapsed time.
+- **Post-session:** generate session report — OS log, TOs issued, consists, extras run, annulments, RR time span covered.
+
+Owner page is accessible from the owner's phone or laptop anywhere on the layout WiFi. It does not interfere with dispatcher operations.
+
+### Annulment
+Cancelling a scheduled train for a session is called an **annulment** (prototype railroad term). Annulments are determined pre-session by the Trainmaster function and recorded in `session.json`. Annulled trains are suppressed from the "next train due" display on station tiles.
+
+---
+
+## 9. DCC and JMRI
 
 - **DCC system:** Digitrax DCS51 (primary command station/booster).
 - **JMRI:** Migrates to RPi5. Connects to DCS51 via LocoNet USB interface — **PR3**.
@@ -211,7 +243,7 @@ Full-screen browser on Display 1 (RPi5). Python FastAPI backend; browser communi
 
 ---
 
-## 9. CAD Requirements for Physical Installation
+## 10. CAD Requirements for Physical Installation
 
 IoT components are bare PCBs and need enclosures or mounts for layout installation. CAD tasks should be planned alongside each firmware phase, not deferred.
 
@@ -226,7 +258,7 @@ Existing CADlayout parts (cable clips, generic boxes) should be evaluated for re
 
 ---
 
-## 10. RFID Train Detection (Future — Phase 4)
+## 11. RFID Train Detection (Future — Phase 4)
 
 RFID tags on locomotives and cabooses only (not all rolling stock). Readers at station approach tracks report the engine or caboose tag to the broker, providing the dispatcher app with a pre-populated OS suggestion. The station agent confirms.
 
@@ -236,7 +268,7 @@ Topic: `trains/block/{block_id}/state` — reserved now so the namespace is esta
 
 ---
 
-## 11. Build Phases
+## 12. Build Phases
 
 | Phase | Scope |
 |-------|-------|
@@ -249,7 +281,7 @@ Topic: `trains/block/{block_id}/state` — reserved now so the namespace is esta
 
 ---
 
-## 12. Open Questions / TBDs
+## 13. Open Questions / TBDs
 
 ### Open
 
@@ -261,8 +293,14 @@ _No open questions._
 |---|------|----------|
 | 1 | RPi5 Ethernet | Yes — Ethernet to home LAN for maintenance; independent of layout WiFi |
 | 2 | SSID / password | SSID = `NYE_Layout`; password is config-time only, not in documentation |
-| 3 | Session day | Day of week (1=Mon … 7=Sun); auto-advances at railroad midnight; resumes from saved state each real session; dispatcher sets at session start; day/time override requires owner permission; timetable uses day for train scheduling |
+| 3 | Session day | Day of week (1=Mon … 7=Sun); auto-advances at railroad midnight; resumes from saved state each real session; dispatcher sets at session start; day/time override is a deliberate two-step action in the dispatcher UI (no separate owner auth); timetable uses day for train scheduling |
 | 4 | TO signal auto-lower | Dispatcher releases manually — prototypically authentic |
 | 5 | C&O staging IoT | Deferred — assess when layout reaches that stage |
 | 6 | Dispatcher secondary display | Web app only |
-| 7 | WP Yardmaster unit | Separate physical unit from WP fascia CYD — RPi3 + RPi 7" Official Touchscreen (DSI). Scope defined in Implementation Plan Session 2.0: arrival notifications, NLS departure lineup, C&O schedule (read-only), consist report form, ready flag. Hardware must be ordered before Session 2.0. |
+| 7 | WP Yardmaster unit | Separate physical unit from WP fascia CYD — RPi3 + RPi 7" Official Touchscreen (DSI). Scope defined in Implementation Plan Session 2.0. Hardware must be ordered before Session 2.0. |
+| 8 | Train order format | Structured templates, not freeform. TO types defined in management function. |
+| 9 | MQTT state recovery | Server uses persistent MQTT session (clean_session=False). OS log is in-memory only. |
+| 10 | Cancellation term | Correct prototype term is **annulment**. Used throughout. |
+| 11 | Owner function scope | Monitoring and reporting only — no operational overrides. Dispatcher controls all live operations. |
+| 12 | Trainmaster role | Pre-session only (Phases 1–2). Generates session.json (manifests, extras, annulments). Live notification channel deferred to a later phase. |
+| 13 | yard.json | Separate file from timetable.json. Yardmaster-only data: track numbers, designated functions. |
