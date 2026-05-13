@@ -8,11 +8,14 @@
 
 ## Phase 1 — Infrastructure
 
-### Session 1.1 — RPi5 Base Setup
-- `setup_ap.sh`: hostapd + dnsmasq config (SSID `NYE_Layout`, `192.168.10.1`, DHCP pool)
-- `setup_mosquitto.sh`: broker config — auth, persistence, ACL, bind to layout WiFi only
-- systemd unit stubs for all services
-- **Completion:** RPi5 creates WiFi AP; Mosquitto accepts authenticated connections
+### Session 1.1 — RPi5 Base Setup ✅ COMPLETE (2026-05-13)
+- WiFi AP: SSID `NYE_Layout`, `192.168.10.1/24`, ch 6, DHCP .10–.254, NM-managed, autostart
+- Mosquitto 2.0.21: `0.0.0.0:1883`, auth required, ACL per device class, persistence, autostart
+- systemd unit stubs: `rr-clock` + `rr-dispatcher` (enabled, not started — Sessions 1.2/1.3)
+- OS: Debian trixie (RPi5), hostname `rpi5-2`, eth0 192.168.86.36 (DHCP reservation set)
+- Scripts: `RR_Server/scripts/` — `setup_ap.sh`, `setup_mosquitto.sh`, `install_services.sh`, `test_broker.sh`, `deploy.sh`
+- Note: Mosquitto config goes in `/etc/mosquitto/mosquitto.conf` directly (not conf.d) — Mosquitto 2.0 enters local-only mode if main file has no listener
+- **Completion:** RPi5 creates WiFi AP; Mosquitto accepts authenticated connections ✓
 
 ### Session 1.2 — Fast Clock Service
 - `clock_service.py`: start/pause/set/reset/speed/set_tick_interval, sync_request response, state persisted to `clock_state.json`
@@ -77,9 +80,19 @@ Scoping complete (2026-05-02). **Hardware needed before this session:** RPi3 + R
 - Station_OS: Clearance screen (activates on receipt, ACK button)
 - **Completion:** clearances issue and ACK at any station
 
-### Session 2.4 — TO Signal Firmware
-- `TO_Signal/src/main.cpp`: 2 servos per ESP32, MQTT sub on `cmd` topics, pub on `state` topics; reuses Switch_Control reconnect pattern
-- **Completion:** Dispatcher raises/lowers signal arms from web UI; arms respond and report state
+### Session 2.4 — TO Signal Firmware ✅ COMPLETE (2026-05-13)
+- `TO_Signal/src/main.cpp`: 2 servos (N=GPIO 13, S=GPIO 14), smooth sweep + mechanical bounce, serial CLI calibration, rr_time tracking, NVS config
+- Per-unit servo angles stored independently in NVS (N raised/lowered, S raised/lowered) — calibrated via serial CLI on each unit
+- LWT/heartbeat deferred to later phase (not needed for MVP operation)
+- **Test broker:** layout RPi5 — requires Session 1.1 before bench testing
+- **Completion criteria (pending):** Dispatcher raises/lowers signal arms from web UI; arms respond and report state — integration test after Sessions 1.1–1.3
+
+### Future — Bad Order Reporting (Yardmaster Page)
+_Scope defined; session number TBD. Design details required before implementation._
+- Yardmaster page: flag a car or locomotive as bad order (road name + number, defect description)
+- Bad order equipment blocked from consist assignment until owner releases it via CC&W Manager
+- Owner release flow: review defect, mark repaired, restore to active roster
+- **Completion:** Yardmaster can report defects digitally; bad order equipment is locked out of service automatically
 
 ---
 
@@ -103,10 +116,11 @@ These tools are needed before the first operating session. Initial sessions may 
 - _Initial sessions: seed JSON hand-edited from timetable.pdf; segments populated once XTrkCAD data is available_
 
 ### CC&W Manager (Car Cards & Waybills)
-- Car database: car ID, type, road name, description
+- Car database: car ID, type, road name, description, **bad order status, defect log, inspection history**
 - Industry database: name, station, commodities accepted/shipped, track capacity
 - Waybill database: routing assignments per car (owner sets between sessions)
 - Printed outputs: car cards (permanent, print once per car), waybills (print each session cycle)
+- Bad order equipment is excluded from consist assignment until owner releases it
 
 ### Trainmaster Function
 - Pre-session tool (owner role): reviews active waybills, matches to scheduled trains, identifies extras needed
@@ -198,3 +212,4 @@ Yardmaster-only data. Separate from `timetable.json`. Contains:
 | 1.0 | 2026-05-02 | Initial plan established |
 | 1.1 | 2026-05-02 | Session 1.2a (timetable loader) added; Session 2.0 scoping complete; yardmaster terminal hardware noted; Management Tools added; CC&W defined |
 | 1.2 | 2026-05-05 | Management Tools expanded: TO type definitions (prerequisite), Trainmaster function, session.json, yard.json, post-session report. Next Planning Session agenda added. Visual system diagram identified as a planning task. |
+| 1.3 | 2026-05-13 | Session 2.4 (TO Signal firmware) complete — out-of-order implementation; firmware done, integration pending Sessions 1.1–1.3. Session 1.1 complete — RPi5 AP + Mosquitto running. |

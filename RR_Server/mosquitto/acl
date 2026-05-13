@@ -1,0 +1,37 @@
+# NY&E Layout Control System — Mosquitto ACL
+# Per device class (not per device — reduces provisioning overhead)
+#
+# Wildcard levels: + = one level, # = all remaining levels
+
+# ── Fast clock service ────────────────────────────────────────────────────
+user rr_clock
+topic write trains/clock/time
+topic read  trains/clock/control
+topic read  trains/clock/sync_request
+
+# ── Dispatcher web app (trusted server component — full access) ───────────
+user rr_dispatcher
+topic readwrite #
+
+# ── Station CYD units (×7) ────────────────────────────────────────────────
+user cyd_unit
+topic write trains/os/+
+topic write trains/to/+/ack
+topic write trains/clearance/+/ack
+topic write trains/station/+/status
+topic write trains/clock/sync_request
+topic read  trains/to/+
+topic read  trains/clearance/+
+topic read  trains/clock/+
+topic read  trains/signal/+/to/+/cmd
+topic read  trains/signal/+/to/+/state
+
+# ── TO signal controllers (×5) ───────────────────────────────────────────
+user to_signal
+topic write trains/signal/+/to/+/state
+topic read  trains/signal/+/to/+/cmd
+topic read  trains/clock/time
+
+# ── JMRI MQTT bridge ──────────────────────────────────────────────────────
+user jmri
+topic readwrite trains/turnout/#
