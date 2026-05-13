@@ -43,11 +43,11 @@ check_field() {
         "import sys,json; print(json.load(sys.stdin)['$field'])" 2>/dev/null || echo "PARSE_ERROR")
     if [[ "$actual" == "$expected" ]]; then
         echo "  ✓  $label"
-        ((ok++))
+        ok=$((ok + 1))
     else
         echo "  ✗  $label  (expected $field=$expected, got $field=$actual)"
         echo "     payload: $payload"
-        ((fail++))
+        fail=$((fail + 1))
     fi
 }
 
@@ -62,7 +62,7 @@ if [[ -z "$retained" ]]; then
     exit 1
 fi
 echo "  ✓  Service is publishing (got retained message)"
-((ok++))
+ok=$((ok + 1))
 echo ""
 
 # ── reset to known state ──────────────────────────────────────────────────────
