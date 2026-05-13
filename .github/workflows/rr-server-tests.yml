@@ -1,0 +1,29 @@
+name: RR Server Tests
+
+on:
+  push:
+    paths:
+      - "RR_Server/**"
+  pull_request:
+    paths:
+      - "RR_Server/**"
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: RR_Server
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Run unit tests
+        run: pytest -v

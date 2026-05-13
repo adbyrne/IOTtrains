@@ -1,8 +1,8 @@
 # NY&E Layout Control System — Implementation Plan
 
-**Version:** 1.2
-**Date:** 2026-05-05
-**Status:** Active — revised after Session 2.0 scoping (2026-05-02)
+**Version:** 1.4
+**Date:** 2026-05-13
+**Status:** Active
 
 ---
 
@@ -18,8 +18,11 @@
 - **Completion:** RPi5 creates WiFi AP; Mosquitto accepts authenticated connections ✓
 
 ### Session 1.2 — Fast Clock Service
-- `clock_service.py`: start/pause/set/reset/speed/set_tick_interval, sync_request response, state persisted to `clock_state.json`
-- systemd `rr-clock` unit
+- `fast_clock/clock_service.py`: start/pause/set/reset/speed/set_tick_interval, sync_request response, state persisted to `clock_state.json`
+- `config.json`: shared broker credentials + clock defaults (gitignored; `config.json.example` is the template)
+- `requirements.txt`: `paho-mqtt>=2.0.0`
+- `scripts/setup_venv.sh`: copies deployed files to `/opt/rr_server/`, creates Python venv
+- systemd `rr-clock` unit (stub installed in Session 1.1, started this session)
 - **Completion:** clock runs headlessly, publishes ticks on schedule, survives restart from saved state
 
 ### Session 1.2a — Timetable Loader
@@ -41,6 +44,13 @@
 - Clock screen: large railroad time + station name + next train status line
 - CYD provisioning: design decided this session
 - **Completion:** CYD units display railroad time and next train; dispatcher UI shows them online
+
+### Session 1.6 — Provisioning Script _(planning session required first)_
+- A `provision/` directory containing a single `provision.sh` entry point and a `layout_config.sh` variable file
+- Covers: OS packages, code deploy to `/opt/rr_server/`, venv, AP config, Mosquitto config, systemd units, health check
+- Idempotent — re-run to repair same Pi or clone to a fresh Pi from USB
+- **Deferred until after Session 1.5** so the full system is known before the script is written
+- **Completion:** plugging USB and running one script fully rebuilds the layout server from scratch
 
 ### Session 1.5 — JMRI on RPi5
 - Fresh JMRI install on RPi5; PR3 LocoNet USB config (DCS51 physical connection not required)
@@ -213,3 +223,4 @@ Yardmaster-only data. Separate from `timetable.json`. Contains:
 | 1.1 | 2026-05-02 | Session 1.2a (timetable loader) added; Session 2.0 scoping complete; yardmaster terminal hardware noted; Management Tools added; CC&W defined |
 | 1.2 | 2026-05-05 | Management Tools expanded: TO type definitions (prerequisite), Trainmaster function, session.json, yard.json, post-session report. Next Planning Session agenda added. Visual system diagram identified as a planning task. |
 | 1.3 | 2026-05-13 | Session 2.4 (TO Signal firmware) complete — out-of-order implementation; firmware done, integration pending Sessions 1.1–1.3. Session 1.1 complete — RPi5 AP + Mosquitto running. |
+| 1.4 | 2026-05-13 | Session 1.2 implemented: clock_service.py, config.json (shared credentials), requirements.txt, setup_venv.sh. Session 1.6 (provisioning script) added — deferred until after Session 1.5. |

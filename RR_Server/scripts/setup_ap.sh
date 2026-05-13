@@ -2,8 +2,14 @@
 # setup_ap.sh — Configure wlan0 as WiFi Access Point for NY&E layout network
 # Run on RPi5 with sudo: sudo bash setup_ap.sh
 #
-# Creates: SSID NYE_Layout, 192.168.10.1/24, DHCP 192.168.10.10–.99
+# Creates: SSID NYE_Layout, 192.168.10.1/24, DHCP 192.168.10.10–.99, OPEN (no WPA)
 # Uses NetworkManager (already installed on Raspberry Pi OS trixie)
+#
+# NOTE: WPA-PSK AP mode is intentionally disabled. NM 1.52 (Debian trixie) has a
+# regression where WPA-PSK AP connections always request a secrets agent even with
+# psk-flags=0, preventing headless activation on reboot. Security is provided at
+# the MQTT layer (all devices require username/password to publish or subscribe).
+# If WPA is needed, bypass NM and use hostapd+dnsmasq directly.
 
 set -euo pipefail
 
@@ -19,18 +25,11 @@ COUNTRY="US"
 if [[ $EUID -ne 0 ]]; then echo "Run as root: sudo bash $0"; exit 1; fi
 
 echo "=== NY&E Layout AP Setup ==="
-echo "  SSID:    $SSID"
-echo "  IP:      192.168.10.1"
-echo "  Channel: $CHANNEL ($BAND band)"
+echo "  SSID:     $SSID"
+echo "  IP:       192.168.10.1"
+echo "  Channel:  $CHANNEL ($BAND band)"
+echo "  Security: OPEN (auth at MQTT layer)"
 echo ""
-
-# Prompt for WiFi password
-while true; do
-    read -rsp "AP password (min 8 chars): " AP_PASS; echo
-    read -rsp "Confirm password: "           AP_PASS2; echo
-    if [[ "$AP_PASS" == "$AP_PASS2" && ${#AP_PASS} -ge 8 ]]; then break; fi
-    echo "Passwords don't match or too short. Try again."
-done
 
 # Set WiFi regulatory country
 echo "Setting WiFi country to $COUNTRY..."
@@ -40,6 +39,7 @@ raspi-config nonint do_wifi_country "$COUNTRY"
 nmcli con delete "$SSID" 2>/dev/null && echo "Removed existing $SSID connection." || true
 
 # Create the AP connection (NM handles DHCP via its internal dnsmasq)
+# No WPA security — see note above
 nmcli con add \
     type wifi \
     ifname wlan0 \
@@ -50,8 +50,6 @@ nmcli con add \
     ipv4.addresses "$AP_IP" \
     802-11-wireless.band "$BAND" \
     802-11-wireless.channel "$CHANNEL" \
-    802-11-wireless-security.key-mgmt wpa-psk \
-    802-11-wireless-security.psk "$AP_PASS" \
     connection.autoconnect yes
 
 # Override DHCP pool range for NM's built-in dnsmasq
@@ -65,7 +63,7 @@ nmcli con up "$SSID"
 
 echo ""
 echo "=== AP is up ==="
-echo "  SSID:      $SSID"
+echo "  SSID:      $SSID  (open — no password)"
 echo "  IP:        192.168.10.1"
 echo "  DHCP pool: ${DHCP_START} – ${DHCP_END}  (lease ${DHCP_LEASE})"
 echo "  Autostart: yes (on boot)"

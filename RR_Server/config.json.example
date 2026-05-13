@@ -1,0 +1,17 @@
+{
+  "broker": {
+    "host": "192.168.10.1",
+    "port": 1883
+  },
+  "credentials": {
+    "rr_clock":       "CHANGE_ME",
+    "rr_dispatcher":  "CHANGE_ME",
+    "cyd_unit":       "CHANGE_ME",
+    "to_signal":      "CHANGE_ME",
+    "jmri":           "CHANGE_ME"
+  },
+  "clock": {
+    "default_speed": 3,
+    "default_tick_interval": 60
+  }
+}

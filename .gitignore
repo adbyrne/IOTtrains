@@ -5,8 +5,9 @@ __pycache__/
 venv/
 .venv/
 
-# Runtime state (generated at runtime, not source)
+# Runtime state and credentials (generated at runtime or contain secrets)
 RR_Server/fast_clock/clock_state.json
+RR_Server/config.json
 
 # One-time debug / test scripts (use scratch/ folder, not tracked)
 scratch/
