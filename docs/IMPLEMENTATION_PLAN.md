@@ -1,6 +1,6 @@
 # NY&E Layout Control System — Implementation Plan
 
-**Version:** 1.5
+**Version:** 1.6
 **Date:** 2026-05-15
 **Status:** Active
 
@@ -10,7 +10,7 @@
 
 ### Session 1.1 — RPi5 Base Setup ✅ COMPLETE (2026-05-13)
 - WiFi AP: SSID `NYE_Layout`, `192.168.10.1/24`, ch 6, DHCP .10–.254, NM-managed, autostart
-- Mosquitto 2.0.21: `0.0.0.0:1883`, auth required, ACL per device class, persistence, autostart
+- Mosquitto 2.0.21: `192.168.10.1:1883` (restricted from 0.0.0.0 after stable WiFi AP confirmed), auth required, ACL per device class, persistence, autostart
 - systemd unit stubs: `rr-clock` + `rr-dispatcher` (enabled, not started — Sessions 1.2/1.3)
 - OS: Debian trixie (RPi5), hostname `rpi5-2`, eth0 192.168.86.36 (DHCP reservation set)
 - Scripts: `RR_Server/scripts/` — `setup_ap.sh`, `setup_mosquitto.sh`, `install_services.sh`, `test_broker.sh`, `deploy.sh`
@@ -27,9 +27,9 @@
 
 ### Session 1.2a — Timetable Loader ✅ COMPLETE (2026-05-15)
 - `data/timetable.json`: 22 trains (11 NB + 11 SB), 15 NLS locations, COE stub. All transcribed from Timetable No. 4. Station names updated to remodel names.
-- `common/timetable.py`: `load()`, `locations()`, `active_trains()`, `train_schedule()`, `next_train()` with midnight-wrap support
-- 21 unit tests, all passing (62 total across the project)
-- **Completion:** timetable loads; next-train queries work per location/direction/time ✓
+- `common/timetable.py`: `load()`, `locations()`, `location_by_id()`, `active_trains()`, `train_schedule()`, `next_train()` with midnight-wrap support
+- 23 unit tests, all passing (64 total across the project)
+- **Completion:** timetable loads; next-train and location queries work per location/direction/time ✓
 
 ### Session 1.3 — Dispatcher UI: Clock + Status
 - FastAPI skeleton + WebSocket MQTT bridge
@@ -62,7 +62,7 @@
 ## Phase 2 — Operations
 
 ### Session 2.0 — WP Yardmaster Page
-Scoping complete (2026-05-02). **Hardware needed before this session:** RPi3 + RPi 7" Official Touchscreen (DSI).
+Scoping complete (2026-05-02). **Hardware needed before this session:** RPi3 + HDMI touchscreen display (ELECROW 7" IPS 1024×600 pk=106 or 5" TN 800×480 pk=107 — in stock, size TBD).
 
 - FastAPI `/yard` route — optimized for RPi3 7" touchscreen in Chromium kiosk mode
 - NLS arrival notifications from Dispatcher (via `trains/yard/notification`)
@@ -79,7 +79,8 @@ Scoping complete (2026-05-02). **Hardware needed before this session:** RPi3 + R
 - **Completion:** station agent submits OS with section number; Dispatcher sees it logged
 
 ### Session 2.2 — Train Orders
-- Dispatcher UI: freeform TO text entry, multi-station selector, Issue button; TO signal arm auto-raises on issue
+_Requires TO type definitions planning session before implementation — TO types, field schemas, and text templates must be defined first._
+- Dispatcher UI: structured TO form (type selector + required fields), multi-station selector, Issue button; TO signal arm auto-raises on issue
 - Station_OS: Orders screen (TO text display, N/S signal arm status, ACK button)
 - Full ACK flow back to Dispatcher UI
 - **Completion:** Dispatcher issues TOs; stations receive, display, and ACK
@@ -113,6 +114,14 @@ These tools are needed before the first operating session. Initial sessions may 
 - Define all TO types used on the NY&E (meet, wait, running extra, work extra, speed restriction, etc.)
 - For each type: required fields, formatted text template, addressed-station rules
 - Output: TO type registry used by the dispatcher UI structured form and by the management tools
+
+### C&O Timetable Data _(content task — no planning session required)_
+- Source: `NYELayoutDocs/alt/timetable.ods` Sheet2 — C&O East Central Subdivision schedule
+- Westward trains: 21, 93, 91, 4104, 7, 5, 23 (with Williamsport times)
+- Eastward trains: 12, 6, 32, 593, 4103, 92, 94, 4165 (with Williamsport times)
+- Populate COE `"trains": []` stub in `data/timetable.json`
+- Minimum fields: number, direction, days, Williamsport arrive/depart; add staging times if present
+- **Completion:** C&O trains appear in Yardmaster page C&O reference display (Session 2.0)
 
 ### Timetable Management Tool
 - Create, edit, and version timetables (version number + release date)
@@ -184,7 +193,7 @@ Yardmaster-only data. Separate from `timetable.json`. Contains:
 
 | Item | Purpose | Needed by |
 |------|---------|-----------|
-| RPi 7" Official Touchscreen (DSI) | Yardmaster terminal display | Session 2.0 |
+| ~~RPi 7" Official Touchscreen (DSI)~~ | ~~Yardmaster terminal display~~ | **In stock:** ELECROW 7" IPS 1024×600 (pk=106) or 5" TN 800×480 (pk=107) — HDMI, size TBD before Session 2.0 |
 
 ---
 
@@ -223,3 +232,5 @@ Yardmaster-only data. Separate from `timetable.json`. Contains:
 | 1.2 | 2026-05-05 | Management Tools expanded: TO type definitions (prerequisite), Trainmaster function, session.json, yard.json, post-session report. Next Planning Session agenda added. Visual system diagram identified as a planning task. |
 | 1.3 | 2026-05-13 | Session 2.4 (TO Signal firmware) complete — out-of-order implementation; firmware done, integration pending Sessions 1.1–1.3. Session 1.1 complete — RPi5 AP + Mosquitto running. |
 | 1.4 | 2026-05-13 | Session 1.2 implemented: clock_service.py, config.json (shared credentials), requirements.txt, setup_venv.sh. Session 1.6 (provisioning script) added — deferred until after Session 1.5. |
+| 1.5 | 2026-05-15 | Session 1.2a complete: timetable.json (22 NLS trains, COE stub), common/timetable.py, 23 tests. |
+| 1.6 | 2026-05-15 | Pre-1.3 cleanup: location_by_id() added to timetable.py; hardware table updated (ELECROW displays in stock); Session 2.0 hardware note updated; Session 2.2 TO-type prerequisite noted; C&O timetable data task added; Session 2.2 description updated to structured TOs. |

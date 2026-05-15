@@ -484,7 +484,7 @@ The JSON schema is finalized. The following fields have placeholder or stub valu
 | Quilly Mine host stations (`within_limits_of`) and `milepost_exit` values for Kiel Co and MC | `milepost_note` strings in place | XTrkCAD MCP query once tool is available; MP = 1 ft real track |
 | Siding lengths (`siding_length_cars`) at all stations | `null` | XTrkCAD MCP query |
 | Service facilities and crew_notes per location | `[]` / `[]` | Hand-entered from ops knowledge |
-| C&O subdivision trains | Stub `"trains": []` | Pull from Stringline.ods spreadsheet |
+| C&O subdivision trains | Stub `"trains": []` | `NYELayoutDocs/alt/timetable.ods` Sheet2 — Westward: 21, 93, 91, 4104, 7, 5, 23; Eastward: 12, 6, 32, 593, 4103, 92, 94, 4165 |
 | New industries or stations from remodel | Current timetable data only | Update incrementally as remodel decisions are confirmed |
 
 ### Schema decisions (resolved)

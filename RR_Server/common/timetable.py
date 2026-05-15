@@ -48,6 +48,14 @@ def locations(subdivision_id: str) -> list[dict]:
     return _subdivision(subdivision_id)["locations"]
 
 
+def location_by_id(subdivision_id: str, location_id: str) -> Optional[dict]:
+    """Return the location dict for location_id, or None if not found."""
+    for loc in locations(subdivision_id):
+        if loc["id"] == location_id:
+            return loc
+    return None
+
+
 def active_trains(subdivision_id: str, day: int) -> list[dict]:
     """
     Return trains running on `day` (1=Mon … 7=Sun) for a subdivision.

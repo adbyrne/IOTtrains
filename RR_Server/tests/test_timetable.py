@@ -164,6 +164,21 @@ def test_next_train_xp_southbound():
     assert result["time"] == "09:50"
 
 
+# ── location_by_id ───────────────────────────────────────────────────────────
+
+def test_location_by_id_found():
+    loc = timetable.location_by_id("NLS", "XP")
+    assert loc is not None
+    assert loc["id"] == "XP"
+    assert loc["name"] == "Xina Pass"
+    assert loc["cyd"] is True
+    assert loc["switchback"] is True
+
+
+def test_location_by_id_not_found():
+    assert timetable.location_by_id("NLS", "NONEXISTENT") is None
+
+
 # ── COE subdivision stub ──────────────────────────────────────────────────────
 
 def test_coe_locations_present():
