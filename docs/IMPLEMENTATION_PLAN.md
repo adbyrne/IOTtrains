@@ -1,7 +1,7 @@
 # NY&E Layout Control System — Implementation Plan
 
-**Version:** 1.4
-**Date:** 2026-05-13
+**Version:** 1.5
+**Date:** 2026-05-15
 **Status:** Active
 
 ---
@@ -25,12 +25,11 @@
 - systemd `rr-clock` unit (stub installed in Session 1.1, started this session)
 - **Completion:** clock runs headlessly, publishes ticks on schedule, survives restart from saved state
 
-### Session 1.2a — Timetable Loader
-- Timetable JSON format defined: see `docs/TIMETABLE_FORMAT.md` (v0.1 draft, open questions remain)
-- Seed `timetable.json` from Timetable No. 4 (December 31, 1904) — source: `NYELayoutDocs/alt/timetable4.pdf`
-- Server loads active timetable on startup (read-only during operations)
-- Read-only timetable API endpoint used by dispatcher UI and yardmaster page
-- **Completion:** server loads timetable; API returns train schedules by location; next-train queries work
+### Session 1.2a — Timetable Loader ✅ COMPLETE (2026-05-15)
+- `data/timetable.json`: 22 trains (11 NB + 11 SB), 15 NLS locations, COE stub. All transcribed from Timetable No. 4. Station names updated to remodel names.
+- `common/timetable.py`: `load()`, `locations()`, `active_trains()`, `train_schedule()`, `next_train()` with midnight-wrap support
+- 21 unit tests, all passing (62 total across the project)
+- **Completion:** timetable loads; next-train queries work per location/direction/time ✓
 
 ### Session 1.3 — Dispatcher UI: Clock + Status
 - FastAPI skeleton + WebSocket MQTT bridge
