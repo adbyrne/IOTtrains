@@ -20,12 +20,14 @@ Dispatcher can monitor all stations and the fast clock from a single browser pag
 - FastAPI app in `RR_Server/dispatcher/`
 - WebSocket endpoint — bridge between MQTT events and browser
 - Clock control panel (shows current RR time; pause/resume, speed, set-time controls)
-- Station status tiles (7 tiles: WP, XP, BB, JC, MC, SK, HC)
-  - Online/offline based on MQTT LWT / heartbeat subscription
+- Station tiles (7 tiles: WP, XP, BB, JC, MC, SK, HC)
   - Next scheduled train per station per direction (calls `timetable.next_train()`)
+  - Both NB and SB rows always shown; "—" when no train (e.g. terminus, wrong-direction switchback)
+  - Server pushes updated next-train data on every clock tick
 - systemd `rr-dispatcher` unit started and verified
 
 ### What's out of scope (later sessions)
+- Station online/offline indicator — deferred until after Session 1.4 (Station_OS heartbeat not yet defined)
 - OS submission log (Session 2.1)
 - Train Order issuance (Session 2.2)
 - Clearance forms (Session 2.3)
@@ -39,8 +41,7 @@ Dispatcher can monitor all stations and the fast clock from a single browser pag
 | Topic | Purpose |
 |-------|---------|
 | `trains/clock/state` | Retained — current clock state (running, rr_time, speed) |
-| `trains/clock/tick` | Live tick events — update displayed time |
-| `trains/station/{id}/status` | LWT + heartbeat from each CYD — online/offline |
+| `trains/clock/tick` | Live tick events — update displayed time + push next-train recalc |
 
 ## REST Endpoints (dispatcher controls broker via MQTT publish)
 
@@ -55,13 +56,28 @@ Dispatcher can monitor all stations and the fast clock from a single browser pag
 
 ```json
 { "type": "clock_state",   "data": { "running": true, "rr_time": "08:30", "speed": 3 } }
-{ "type": "clock_tick",    "data": { "rr_time": "08:31" } }
-{ "type": "station_online",  "data": { "id": "XP" } }
-{ "type": "station_offline", "data": { "id": "XP" } }
-{ "type": "initial_state", "data": { "clock": {...}, "stations": {...} } }
+{ "type": "clock_tick",    "data": { "rr_time": "08:31", "stations": [ ... ] } }
+{ "type": "initial_state", "data": { "clock": {...}, "stations": [ ... ] } }
 ```
 
 `initial_state` is sent immediately on WebSocket connect — browser gets full snapshot before any incremental events.
+
+`clock_tick` carries the updated next-train data for all 7 stations (server-push on every tick).
+
+### Station data shape (inside `stations` array)
+
+```json
+{
+  "id": "XP",
+  "name": "Xina Pass",
+  "next_N": { "number": "2", "time": "10:15" },
+  "next_S": null
+}
+```
+
+`next_N` / `next_S` are `null` when no upcoming train. `day` is always `1` (Monday/weekday) — no calendar tracking in fast clock.
+
+Station online/offline status is not included in 1.3; added after Session 1.4 (Station_OS heartbeat).
 
 ---
 
@@ -87,13 +103,12 @@ RR_Server/
 
 Each tile shows:
 - Station name
-- Online indicator (green dot / grey dot)
 - Next NB train: number + time (or "—" if none)
 - Next SB train: number + time (or "—" if none)
 
-Next-train times computed server-side on each clock tick and sent via WebSocket (or computed client-side from timetable data embedded in page — TBD in session).
+Both direction rows always shown. Next-train data is server-push on every clock tick (`clock_tick` event carries `stations` array). `day=1` (weekday) always — no calendar in fast clock.
 
-**Decision to make during session:** Push next-train updates on every tick (server pushes) vs. client pulls from embedded timetable JSON. Server-push is simpler; client-side compute avoids WebSocket chatter. Recommendation: server-push for now (simpler, consistent with WebSocket-only approach).
+Online/offline indicator deferred to after Session 1.4.
 
 ---
 
@@ -123,14 +138,14 @@ WantedBy=multi-user.target
 - [ ] `http://192.168.10.1:5000` returns the dispatcher page
 - [ ] Clock displays current RR time, updates each tick
 - [ ] Pause/resume and set-time controls work
-- [ ] Station tiles show online/offline status (can test by subscribing a fake CYD heartbeat via MQTT CLI)
-- [ ] Next scheduled train appears in each tile (both directions)
+- [ ] All 7 station tiles show next NB and next SB train (or "—"); updates on each tick
 - [ ] `rr-dispatcher` systemd unit starts at boot
 
 ---
 
 ## Notes
 
+- **requirements.txt** updated to add `fastapi`, `uvicorn[standard]`, `jinja2` — `setup_venv.sh` / `deploy.sh` will pick these up automatically
 - Mosquitto listener is now `192.168.10.1:1883` — dispatcher must connect on that address (already in `config.json`)
 - Browser access must be from a device on `NYE_Layout` WiFi (192.168.10.x) or via eth0 (192.168.86.x for dev testing — broker is on layout WiFi, but the web server port 5000 can be accessible via eth0 if `--host 0.0.0.0`)
 - Consider binding uvicorn to `0.0.0.0` so the dev machine can reach the UI over eth0 during development, even though the broker is layout-WiFi-only
