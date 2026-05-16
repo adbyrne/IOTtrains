@@ -31,10 +31,18 @@ def loaded_timetable():
     timetable.load(DATA)
 
 
+CONFIG_EXAMPLE = Path(__file__).parent.parent / "config.json.example"
+
+
 @pytest.fixture()
 def client():
-    """TestClient with MQTT patched out — no broker required."""
-    with patch("dispatcher.app.MQTTClient") as mock_cls:
+    """TestClient with MQTT patched out and config.json.example substituted.
+
+    config.json is not committed (contains credentials), so CI patches
+    CONFIG_FILE to use the example file instead.
+    """
+    with patch("dispatcher.app.MQTTClient") as mock_cls, \
+         patch("dispatcher.app.CONFIG_FILE", CONFIG_EXAMPLE):
         mock_cls.return_value = MagicMock()
         with TestClient(app) as c:
             yield c
