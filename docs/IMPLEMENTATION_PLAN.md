@@ -31,12 +31,14 @@
 - 23 unit tests, all passing (64 total across the project)
 - **Completion:** timetable loads; next-train and location queries work per location/direction/time ✓
 
-### Session 1.3 — Dispatcher UI: Clock + Status
+### Session 1.3 — Dispatcher UI: Clock + Status ✅ COMPLETE (2026-05-16)
 - FastAPI skeleton + WebSocket MQTT bridge
 - Clock display with pause/start/set controls
-- Station status panel (7 tiles, online/offline) with next scheduled train per station
-- systemd `rr-dispatcher` unit
-- **Completion:** working page at `localhost:5000` showing live clock, station status, and next trains
+- Station table: 7 rows, online/offline dot, next scheduled train per direction, TO signal arm state
+- systemd `rr-dispatcher` unit started and enabled
+- **Completion:** working page at `http://192.168.86.36:5000` showing live clock, station status, next trains, and TO signal indicators
+
+![Dispatcher UI](screenshots/dispatcher_ui_session1.3.png)
 
 ### Session 1.4 — Station_OS: Clock + Network
 - MQTT client with LWT and 60s heartbeat; sync_request on reconnect

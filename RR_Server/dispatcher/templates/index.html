@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>NY&amp;E Dispatcher</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<header>
+    <h1>NY&amp;E Northern Lights</h1>
+    <span>Dispatcher</span>
+</header>
+
+<main>
+
+    <!-- Clock panel -->
+    <div id="clock-panel">
+        <div id="clock-display">
+            <span id="clock-time">--:-- --</span>
+            <div id="clock-meta">
+                <span id="clock-day">—</span>
+                <span id="clock-speed"></span>
+            </div>
+            <span id="clock-badge" class="clock-badge unknown">—</span>
+        </div>
+
+        <div id="clock-controls">
+            <!-- Start / Pause / Reset -->
+            <div class="btn-group">
+                <button id="btn-start" class="btn primary">Start</button>
+                <button id="btn-pause" class="btn">Pause</button>
+                <button id="btn-reset" class="btn danger">Reset</button>
+            </div>
+
+            <div class="divider"></div>
+
+            <!-- Speed -->
+            <div class="btn-group">
+                <button class="btn speed-btn" data-speed="1">1×</button>
+                <button class="btn speed-btn" data-speed="2">2×</button>
+                <button class="btn speed-btn active" data-speed="3">3×</button>
+                <button class="btn speed-btn" data-speed="6">6×</button>
+            </div>
+
+            <div class="divider"></div>
+
+            <!-- Set time -->
+            <div id="set-form">
+                <span>Set</span>
+                <input id="set-hour" type="number" min="0" max="23" placeholder="Hour" value="8">
+                <input id="set-min"  type="number" min="0" max="59" placeholder="Min" value="0">
+                <select id="set-day">
+                    <option value="1">Monday</option>
+                    <option value="2">Tuesday</option>
+                    <option value="3">Wednesday</option>
+                    <option value="4">Thursday</option>
+                    <option value="5">Friday</option>
+                    <option value="6">Saturday</option>
+                    <option value="7">Sunday</option>
+                </select>
+                <button id="btn-set" class="btn">Apply</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Station table (populated by JS on initial_state) -->
+    <div id="station-table">
+        <div class="station-header">
+            <span></span>
+            <span>ID</span>
+            <span>Station</span>
+            <span></span>
+            <span>&#x2192; North</span>
+            <span></span>
+            <span>&#x2190; South</span>
+        </div>
+    </div>
+
+    <div id="status-bar">Connecting…</div>
+
+</main>
+
+<script src="/static/dispatcher.js"></script>
+</body>
+</html>

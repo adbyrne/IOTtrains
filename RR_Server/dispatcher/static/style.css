@@ -1,0 +1,200 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+    --bg:       #1a1a1a;
+    --panel:    #252525;
+    --border:   #383838;
+    --text:     #e0e0e0;
+    --muted:    #888;
+    --online:   #4caf50;
+    --offline:  #555;
+    --accent:   #c8a800;
+    --danger:   #cc3300;
+    --btn:      #333;
+    --btn-hover:#444;
+}
+
+body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.4;
+}
+
+header {
+    background: #111;
+    border-bottom: 2px solid var(--accent);
+    padding: 10px 20px;
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+}
+header h1 { font-size: 1.1rem; font-weight: 600; letter-spacing: 0.05em; color: var(--accent); }
+header span { font-size: 0.8rem; color: var(--muted); }
+
+main { padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; }
+
+/* ── Clock panel ────────────────────────────────────────────────── */
+#clock-panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px 20px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 20px;
+}
+
+#clock-display {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+}
+#clock-time {
+    font-family: 'Courier New', monospace;
+    font-size: 2.8rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: #fff;
+    min-width: 10ch;
+}
+#clock-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+#clock-day  { font-size: 0.95rem; color: var(--muted); }
+#clock-speed { font-size: 0.85rem; color: var(--muted); }
+
+#clock-badge {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    padding: 3px 10px;
+    border-radius: 4px;
+    text-transform: uppercase;
+}
+#clock-badge.running { background: #1b4d1e; color: var(--online); }
+#clock-badge.paused  { background: #4d3a00; color: var(--accent); }
+#clock-badge.unknown { background: #333; color: var(--muted); }
+
+/* ── Controls ───────────────────────────────────────────────────── */
+#clock-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-left: auto;
+}
+
+.btn {
+    background: var(--btn);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 6px 14px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.btn:hover { background: var(--btn-hover); }
+.btn.primary { background: #1b4020; border-color: #2d6b35; color: #7dcc85; }
+.btn.primary:hover { background: #245227; }
+.btn.danger  { background: #3d1a10; border-color: #7a3318; color: #e07055; }
+.btn.danger:hover  { background: #4f2015; }
+.btn.active  { background: #3d3000; border-color: var(--accent); color: var(--accent); }
+.btn:disabled { opacity: 0.4; cursor: default; }
+
+.btn-group { display: flex; gap: 0; }
+.btn-group .btn { border-radius: 0; border-right-width: 0; }
+.btn-group .btn:first-child { border-radius: 4px 0 0 4px; }
+.btn-group .btn:last-child  { border-radius: 0 4px 4px 0; border-right-width: 1px; }
+
+.divider { width: 1px; height: 28px; background: var(--border); }
+
+#set-form {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    color: var(--muted);
+}
+#set-form input, #set-form select {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 5px 8px;
+    font-size: 0.85rem;
+    width: 60px;
+}
+#set-form select { width: 110px; }
+
+/* ── Station table ───────────────────────────────────────────────── */
+#station-table {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.station-header, .station-row {
+    display: grid;
+    grid-template-columns: 16px 38px 1fr 28px 1fr 28px 1fr;
+    align-items: center;
+    gap: 0 12px;
+    padding: 7px 14px;
+}
+
+.station-header {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    background: #1e1e1e;
+}
+
+.station-row {
+    border-bottom: 1px solid var(--border);
+    font-size: 0.88rem;
+}
+.station-row:last-child { border-bottom: none; }
+.station-row:hover { background: #2c2c2c; }
+
+.status-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: var(--offline);
+}
+.status-dot.online { background: var(--online); }
+
+.col-id   { font-family: monospace; font-size: 0.8rem; font-weight: 700; color: var(--muted); }
+.col-name { font-weight: 500; }
+.col-train { font-family: monospace; }
+.col-train .train-num  { font-weight: 600; }
+.col-train .train-time { color: var(--muted); margin-left: 6px; }
+.col-train .train-none { color: var(--offline); font-style: italic; font-family: sans-serif; }
+
+.col-to {
+    text-align: center;
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+.to-raised  { color: #e03030; }   /* arm up — stop for orders */
+.to-lowered { color: #4caf50; }   /* arm down — clear */
+.to-none    { color: #555; }
+
+/* ── Connection status bar ───────────────────────────────────────── */
+#status-bar {
+    font-size: 0.75rem;
+    color: var(--muted);
+    text-align: right;
+    padding: 0 4px 4px;
+}
+#status-bar.error { color: var(--danger); }
