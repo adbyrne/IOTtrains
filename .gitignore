@@ -1,3 +1,6 @@
+# PlatformIO build artifacts
+.pio/
+
 # Python artifacts (RR_Server)
 __pycache__/
 *.py[cod]
