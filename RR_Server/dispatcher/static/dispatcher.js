@@ -26,6 +26,7 @@ function connect() {
             case 'clock_update':     handleClockUpdate(event);     break;
             case 'station_status':   handleStationStatus(event);   break;
             case 'to_signal_update': handleToSignalUpdate(event);  break;
+            case 'os_report':        handleOsReport(event);        break;
         }
     };
 
@@ -54,6 +55,7 @@ function handleInitialState(event) {
             updateToSignal(sid, dir, sigState);
         }
     }
+    rebuildOsLog(event.os_log || []);
 }
 
 function handleClockUpdate(event) {
@@ -160,10 +162,48 @@ function updateNextTrain(sid, dir, train) {
     if (train) {
         const ar = train.arrive ? `<span class="train-arr">Ar&nbsp;${fmtTime(train.arrive)}</span>` : '';
         const dp = train.depart ? `<span class="train-dep">Dp&nbsp;${fmtTime(train.depart)}</span>` : '';
-        el.innerHTML = `<span class="train-num">No.&nbsp;${train.number}</span><span class="train-times">${ar}${dp}</span>`;
+        const times = dir === 'N' ? ar + dp : dp + ar;
+        el.innerHTML = `<span class="train-num">No.&nbsp;${train.number}</span><span class="train-times">${times}</span>`;
     } else {
         el.innerHTML = `<span class="train-none">—</span>`;
     }
+}
+
+// ── OS log ───────────────────────────────────────────────────────────────────
+
+function fmtRrTime(t) {
+    if (!t || t === '?') return t || '?';
+    const [hStr, mStr] = t.split(':');
+    const h = parseInt(hStr, 10), m = parseInt(mStr, 10);
+    const ampm = h < 12 ? 'AM' : 'PM';
+    const h12 = h % 12 || 12;
+    return `${h12}:${String(m).padStart(2, '0')} ${ampm}`;
+}
+
+function osEntryHtml(entry) {
+    const prefix   = entry.work_extra ? 'WX' : entry.extra ? 'X' : '';
+    const dirClass = entry.direction === 'N' ? 'os-dir-n' : 'os-dir-s';
+    return `<div class="os-row">` +
+        `<span class="os-col-time">${fmtRrTime(entry.rr_time)}</span>` +
+        `<span class="os-col-sta">${entry.station_id}</span>` +
+        `<span class="os-col-train ${dirClass}">${prefix}${entry.train}${entry.direction}</span>` +
+        `</div>`;
+}
+
+function rebuildOsLog(entries) {
+    const log = document.getElementById('os-log');
+    log.innerHTML = entries.map(osEntryHtml).join('');
+}
+
+function handleOsReport(event) {
+    const log = document.getElementById('os-log');
+    const row = document.createElement('div');
+    row.innerHTML = osEntryHtml(event.entry);
+    const newRow = row.firstChild;
+    newRow.classList.add('os-flash');
+    log.prepend(newRow);
+    // Cap to 50 rows in the DOM
+    while (log.children.length > 50) log.removeChild(log.lastChild);
 }
 
 // ── Clock controls ───────────────────────────────────────────────────────────

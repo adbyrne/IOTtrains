@@ -39,6 +39,7 @@ CONFIG_FILE = BASE_DIR / "config.json"
 TEMPLATE_DIR = Path(__file__).parent / "templates"
 STATIC_DIR = Path(__file__).parent / "static"
 SUBDIVISION = "NLS"
+DISPATCHER_VERSION = "2.1"
 
 state = AppState()
 mqtt_client: MQTTClient | None = None
@@ -67,6 +68,7 @@ def build_initial_state() -> dict:
         "clock": state.clock,
         "stations": state.stations,
         "to_signals": state.to_signals,
+        "os_log": state.os_log,
         "next_trains": build_next_trains(state.clock),
         "station_ids": STATION_IDS,
         "station_names": STATION_NAMES,
@@ -101,7 +103,8 @@ templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
 
 @app.get("/")
 async def index(request: Request):
-    return templates.TemplateResponse(request, "index.html")
+    return templates.TemplateResponse(request, "index.html",
+                                      {"version": DISPATCHER_VERSION})
 
 
 @app.post("/api/clock/control")

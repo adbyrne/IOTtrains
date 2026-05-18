@@ -19,11 +19,15 @@ STATION_NAMES = {
 }
 
 
+OS_LOG_MAX = 50
+
+
 @dataclass
 class AppState:
     clock: dict = field(default_factory=dict)
     stations: dict = field(default_factory=dict)   # station_id -> status dict
     to_signals: dict = field(default_factory=dict) # station_id -> {"N": state, "S": state}
+    os_log: list = field(default_factory=list)     # newest first, capped at OS_LOG_MAX
     _clients: set = field(default_factory=set)
 
     async def connect(self, ws: WebSocket) -> None:

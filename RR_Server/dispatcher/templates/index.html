@@ -10,7 +10,7 @@
 
 <header>
     <h1>NY&amp;E Northern Lights</h1>
-    <span>Dispatcher</span>
+    <span>Dispatcher <span id="version">v{{ version }}</span></span>
 </header>
 
 <main>
@@ -76,6 +76,16 @@
             <span></span>
             <span>&#x2190; South</span>
         </div>
+    </div>
+
+    <!-- OS log panel -->
+    <div id="os-panel">
+        <div class="os-header">
+            <span class="os-header-cell os-col-time">RR Time</span>
+            <span class="os-header-cell os-col-sta">Station</span>
+            <span class="os-header-cell os-col-train">Train</span>
+        </div>
+        <div id="os-log"></div>
     </div>
 
     <div id="status-bar">Connecting…</div>

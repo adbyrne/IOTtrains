@@ -175,3 +175,138 @@ class TestWebSocketInitialState:
     def test_stations_key_present(self, client):
         data = self._get_initial(client)
         assert "stations" in data
+
+    def test_os_log_key_present(self, client):
+        data = self._get_initial(client)
+        assert "os_log" in data
+        assert isinstance(data["os_log"], list)
+
+
+# ── OS report handling ────────────────────────────────────────────────────────
+
+OS_REPORT_PAYLOAD = {
+    "station_id": "BB",
+    "train": "3",
+    "section": 0,
+    "direction": "N",
+    "extra": False,
+    "work_extra": False,
+    "rr_time": "10:41",
+    "day": 1,
+}
+
+EXTRA_PAYLOAD = {
+    "station_id": "XP",
+    "train": "101",
+    "section": 0,
+    "direction": "S",
+    "extra": True,
+    "work_extra": False,
+    "rr_time": "14:05",
+    "day": 2,
+}
+
+WORK_EXTRA_PAYLOAD = {
+    "station_id": "SK",
+    "train": "55",
+    "section": 0,
+    "direction": "N",
+    "extra": True,
+    "work_extra": True,
+    "rr_time": "09:00",
+    "day": 3,
+}
+
+
+def _make_real_mqtt_client(state):
+    """Create a real MQTTClient instance with a fake config, loop=None (no broadcast)."""
+    from dispatcher.mqtt_client import MQTTClient
+    config = {
+        "broker": {"host": "127.0.0.1", "port": 1883},
+        "credentials": {"rr_dispatcher": "test"},
+    }
+    # build_next_trains stub — not needed for OS tests
+    return MQTTClient(config, state, lambda c: {})
+
+
+def _inject_os(mqtt_obj, payload: dict) -> None:
+    """Simulate receiving an OS MQTT message (no broker connection needed)."""
+    import json
+    msg = MagicMock()
+    msg.topic = f"trains/os/{payload['station_id']}"
+    msg.payload = json.dumps(payload).encode()
+    mqtt_obj._on_message(None, None, msg)
+
+
+class TestOsReport:
+    def test_os_state_appended(self):
+        """OS MQTT message is prepended to AppState.os_log."""
+        from dispatcher.session import AppState
+        state = AppState()
+        mc = _make_real_mqtt_client(state)
+        _inject_os(mc, OS_REPORT_PAYLOAD)
+        assert len(state.os_log) == 1
+        entry = state.os_log[0]
+        assert entry["station_id"] == "BB"
+        assert entry["train"] == "3"
+        assert entry["direction"] == "N"
+        assert entry["extra"] is False
+        assert entry["work_extra"] is False
+        assert entry["rr_time"] == "10:41"
+        assert entry["day"] == 1
+
+    def test_os_log_newest_first(self):
+        """Multiple OS messages are prepended so newest is at index 0."""
+        from dispatcher.session import AppState
+        state = AppState()
+        mc = _make_real_mqtt_client(state)
+        _inject_os(mc, OS_REPORT_PAYLOAD)   # BB first
+        _inject_os(mc, EXTRA_PAYLOAD)       # XP second
+        assert state.os_log[0]["station_id"] == "XP"
+        assert state.os_log[1]["station_id"] == "BB"
+
+    def test_os_log_capped_at_50(self):
+        """os_log is capped at OS_LOG_MAX (50) entries."""
+        from dispatcher.session import AppState, OS_LOG_MAX
+        state = AppState()
+        mc = _make_real_mqtt_client(state)
+        payload = dict(OS_REPORT_PAYLOAD)
+        for i in range(OS_LOG_MAX + 5):
+            payload = dict(OS_REPORT_PAYLOAD, train=str(i))
+            _inject_os(mc, payload)
+        assert len(state.os_log) == OS_LOG_MAX
+
+    def test_extra_flags_preserved(self):
+        """extra and work_extra flags round-trip through the handler."""
+        from dispatcher.session import AppState
+        state = AppState()
+        mc = _make_real_mqtt_client(state)
+        _inject_os(mc, EXTRA_PAYLOAD)
+        entry = state.os_log[0]
+        assert entry["extra"] is True
+        assert entry["work_extra"] is False
+
+    def test_work_extra_flags_preserved(self):
+        """work_extra flag is stored correctly."""
+        from dispatcher.session import AppState
+        state = AppState()
+        mc = _make_real_mqtt_client(state)
+        _inject_os(mc, WORK_EXTRA_PAYLOAD)
+        entry = state.os_log[0]
+        assert entry["extra"] is True
+        assert entry["work_extra"] is True
+
+    def test_initial_state_includes_os_log(self, client):
+        """initial_state WebSocket event includes os_log with accumulated entries."""
+        import json
+        with patch("dispatcher.app.MQTTClient") as mock_cls, \
+             patch("dispatcher.app.CONFIG_FILE", CONFIG_EXAMPLE):
+            mock_cls.return_value = MagicMock()
+            with TestClient(app) as c:
+                from dispatcher.app import state as app_state
+                # Directly inject an entry into state (bypasses MQTT plumbing)
+                app_state.os_log.insert(0, dict(OS_REPORT_PAYLOAD))
+                with c.websocket_connect("/ws") as ws:
+                    data = ws.receive_json()
+                    assert data["type"] == "initial_state"
+                    assert any(e["train"] == "3" for e in data["os_log"])

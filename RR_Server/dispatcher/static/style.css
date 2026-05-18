@@ -32,6 +32,7 @@ header {
 }
 header h1 { font-size: 1.1rem; font-weight: 600; letter-spacing: 0.05em; color: var(--accent); }
 header span { font-size: 0.8rem; color: var(--muted); }
+#version { font-size: 0.7rem; color: #555; margin-left: 4px; }
 
 main { padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; }
 
@@ -176,9 +177,9 @@ main { padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; }
 
 .col-id   { font-family: monospace; font-size: 0.8rem; font-weight: 700; color: var(--muted); }
 .col-name { font-weight: 500; }
-.col-train { font-family: monospace; }
+.col-train { font-family: monospace; display: flex; flex-direction: column; gap: 2px; }
 .col-train .train-num   { font-weight: 600; }
-.col-train .train-times { display: inline-flex; gap: 6px; margin-left: 6px; flex-wrap: wrap; }
+.col-train .train-times { display: flex; flex-direction: column; gap: 1px; }
 .col-train .train-arr   { color: #7dcc85; }
 .col-train .train-dep   { color: var(--accent); }
 .col-train .train-none  { color: var(--offline); font-style: italic; font-family: sans-serif; }
@@ -191,6 +192,52 @@ main { padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; }
 .to-raised  { color: #e03030; }   /* arm up — stop for orders */
 .to-lowered { color: #4caf50; }   /* arm down — clear */
 .to-none    { color: #555; }
+
+/* ── OS log panel ────────────────────────────────────────────────── */
+#os-panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.os-header {
+    display: grid;
+    grid-template-columns: 90px 50px 1fr;
+    gap: 0 10px;
+    padding: 6px 14px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    background: #1e1e1e;
+}
+
+.os-row {
+    display: grid;
+    grid-template-columns: 90px 50px 1fr;
+    gap: 0 10px;
+    padding: 5px 14px;
+    font-size: 0.85rem;
+    border-bottom: 1px solid var(--border);
+    font-family: monospace;
+}
+.os-row:last-child { border-bottom: none; }
+
+.os-col-time  { color: var(--muted); }
+.os-col-sta   { font-weight: 700; color: var(--text); }
+.os-col-train { font-weight: 700; }
+
+.os-dir-n { color: #7dcc85; }
+.os-dir-s { color: #56c8d8; }
+
+@keyframes os-flash-anim {
+    0%   { background: #1b4020; }
+    100% { background: transparent; }
+}
+.os-flash { animation: os-flash-anim 1.2s ease-out forwards; }
 
 /* ── Connection status bar ───────────────────────────────────────── */
 #status-bar {

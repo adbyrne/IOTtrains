@@ -20,6 +20,7 @@ TOPIC_CLOCK_TIME = "trains/clock/time"
 TOPIC_STATION_STATUS = "trains/station/+/status"
 TOPIC_TO_STATE = "trains/signal/+/to/+/state"
 TOPIC_CLOCK_CONTROL = "trains/clock/control"
+TOPIC_OS = "trains/os/+"
 
 CLIENT_ID = "rr_dispatcher"
 
@@ -85,6 +86,7 @@ class MQTTClient:
             (TOPIC_CLOCK_TIME, 0),
             (TOPIC_STATION_STATUS, 1),
             (TOPIC_TO_STATE, 1),
+            (TOPIC_OS, 1),
         ])
 
     def _on_disconnect(self, client, userdata, flags, reason_code, properties) -> None:
@@ -133,6 +135,22 @@ class MQTTClient:
                 }
             else:
                 return
+        elif msg.topic.startswith("trains/os/"):
+            from .session import OS_LOG_MAX
+            entry = {
+                "station_id": payload.get("station_id", "?"),
+                "train":      payload.get("train", "?"),
+                "section":    payload.get("section", 0),
+                "direction":  payload.get("direction", "?"),
+                "extra":      payload.get("extra", False),
+                "work_extra": payload.get("work_extra", False),
+                "rr_time":    payload.get("rr_time", "?"),
+                "day":        payload.get("day", 1),
+            }
+            self._state.os_log.insert(0, entry)
+            if len(self._state.os_log) > OS_LOG_MAX:
+                self._state.os_log = self._state.os_log[:OS_LOG_MAX]
+            event = {"type": "os_report", "entry": entry}
         else:
             return
 

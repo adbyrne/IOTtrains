@@ -142,7 +142,7 @@ Scoping complete (2026-05-02). **Hardware needed before this session:** RPi3 + H
 - MQTT: publishes `trains/yard/consist`; subscribes to `trains/yard/notification`
 - **Completion:** Yardmaster can view lineup, receive Dispatcher notifications, submit consist + ready
 
-### Session 2.1 — OS Submission _(planned — see SESSION_2_1_PLAN.md)_
+### Session 2.1 — OS Submission ✅ COMPLETE (2026-05-18)
 - **Station_OS:** full screen state machine (CLOCK → OS_ENTRY → NEXT_STATION → CLOCK)
 - **Station_OS:** 4×4 keypad OS entry screen (digit + N/S direction + X/WX extra flags, 15s timeout)
 - **Station_OS:** next-station screen (direction, station name, scheduled train + depart time, 30s timeout)
@@ -311,3 +311,4 @@ Yardmaster-only data. Separate from `timetable.json`. Contains:
 | 1.7 | 2026-05-17 | Session 1.4 complete: Station_OS full rewrite — NVS provisioning, LittleFS timetable, LVGL clock screen, MQTT heartbeat/sync. |
 | 1.8 | 2026-05-17 | Session 1.4 hardware tested (unit BB). Build lessons (User_Setup.h copy, direct flush callback, WiFi guard). Deferred items + CYD screen architecture question documented. Dispatcher clock interpolation noted. |
 | 1.9 | 2026-05-17 | Session 2.1 detailed plan complete (SESSION_2_1_PLAN.md). Screen state machine, keypad layout, next-station lookup, dispatcher OS log, MQTT spec updates defined. |
+| 2.0 | 2026-05-18 | Session 2.1 complete. Station_OS: screen state machine (CLOCK→OS_ENTRY→NEXT_STATION→CLOCK), 4×4 keypad, full schedule load, next-station lookup, OS publish. Dispatcher: trains/os/+ subscription, os_log AppState field, OS log panel (green flash on new entry), initial_state includes os_log. 31 tests, firmware builds clean (42.2% flash, 19.3% RAM). |
