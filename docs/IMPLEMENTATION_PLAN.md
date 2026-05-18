@@ -142,10 +142,15 @@ Scoping complete (2026-05-02). **Hardware needed before this session:** RPi3 + H
 - MQTT: publishes `trains/yard/consist`; subscribes to `trains/yard/notification`
 - **Completion:** Yardmaster can view lineup, receive Dispatcher notifications, submit consist + ready
 
-### Session 2.1 — OS Submission
-- Station_OS: OS screen (train number + section number keypad, direction toggle, submit)
-- Dispatcher UI: scrolling OS log (station, train, section, direction, RR time)
-- **Completion:** station agent submits OS with section number; Dispatcher sees it logged
+### Session 2.1 — OS Submission _(planned — see SESSION_2_1_PLAN.md)_
+- **Station_OS:** full screen state machine (CLOCK → OS_ENTRY → NEXT_STATION → CLOCK)
+- **Station_OS:** 4×4 keypad OS entry screen (digit + N/S direction + X/WX extra flags, 15s timeout)
+- **Station_OS:** next-station screen (direction, station name, scheduled train + depart time, 30s timeout)
+- **Station_OS:** load full schedule.json at startup (all 7 stations) for next-station lookup
+- **Dispatcher:** `trains/os/+` subscription, OS log in AppState, scrolling log panel in UI
+- **MQTT spec:** add `work_extra` to OS payload; add `trains[]` array to TO payload
+- Section number: always `0` (sections assigned via TO — Session 2.2+)
+- **Completion:** station agent submits OS; dispatcher sees it logged; next-station timetable shown on CYD
 
 ### Session 2.2 — Train Orders
 _Requires TO type definitions planning session before implementation — TO types, field schemas, and text templates must be defined first._
@@ -305,3 +310,4 @@ Yardmaster-only data. Separate from `timetable.json`. Contains:
 | 1.6 | 2026-05-15 | Pre-1.3 cleanup: location_by_id() added to timetable.py; hardware table updated (ELECROW displays in stock); Session 2.0 hardware note updated; Session 2.2 TO-type prerequisite noted; C&O timetable data task added; Session 2.2 description updated to structured TOs. |
 | 1.7 | 2026-05-17 | Session 1.4 complete: Station_OS full rewrite — NVS provisioning, LittleFS timetable, LVGL clock screen, MQTT heartbeat/sync. |
 | 1.8 | 2026-05-17 | Session 1.4 hardware tested (unit BB). Build lessons (User_Setup.h copy, direct flush callback, WiFi guard). Deferred items + CYD screen architecture question documented. Dispatcher clock interpolation noted. |
+| 1.9 | 2026-05-17 | Session 2.1 detailed plan complete (SESSION_2_1_PLAN.md). Screen state machine, keypad layout, next-station lookup, dispatcher OS log, MQTT spec updates defined. |
