@@ -109,7 +109,8 @@ def test_next_train_basic():
     result = timetable.next_train("NLS", "WP", "N", "06:00", 1)
     assert result is not None
     assert result["number"] == "1"   # departs 07:10, first NB pass after 06:00
-    assert result["time"] == "07:10"
+    assert result["arrive"] is None
+    assert result["depart"] == "07:10"
 
 
 def test_next_train_after_1_gets_3():
@@ -136,7 +137,8 @@ def test_next_train_wraps_midnight():
     result = timetable.next_train("NLS", "HC", "S", "23:00", 1)
     assert result is not None
     assert result["number"] == "22"
-    assert result["time"] == "03:31"
+    assert result["arrive"] is None
+    assert result["depart"] == "03:31"
 
 
 def test_next_train_terminus_arrive_is_valid():
@@ -147,21 +149,39 @@ def test_next_train_terminus_arrive_is_valid():
     assert result["direction"] == "S"
 
 
+def test_next_train_holding_remains_visible():
+    # Train 2 arrives XP at 09:50, departs 10:00. At 09:55 (after arrive, before depart)
+    # the train is still at the station — it must still be returned as next.
+    result = timetable.next_train("NLS", "XP", "S", "09:55", 1)
+    assert result is not None
+    assert result["number"] == "2"
+
 def test_next_train_at_intermediate_stop():
-    # At BB heading north, after 11:30 → next NB is train 131 (departs BB 12:13)
+    # At BB heading north, at 11:30 → train 23 is holding (arrived 11:24, departs 11:34).
+    # Depart-first comparison keeps it visible until it actually leaves.
     result = timetable.next_train("NLS", "BB", "N", "11:30", 1)
     assert result is not None
+    assert result["number"] == "23"
+    assert result["arrive"] == "11:24"
+    assert result["depart"] == "11:34"
+
+def test_next_train_after_holding_departs():
+    # At BB heading north, after train 23 departs (11:35) → next is train 131 (departs 12:13)
+    result = timetable.next_train("NLS", "BB", "N", "11:35", 1)
+    assert result is not None
     assert result["number"] == "131"
-    assert result["time"] == "12:13"
+    assert result["arrive"] is None
+    assert result["depart"] == "12:13"
 
 
 def test_next_train_xp_southbound():
     # At XP heading south around 09:45 → train 2 (arrive 09:50, depart 10:00).
-    # next_train returns arrive when present (first time the train is at the location).
+    # Both times returned; dispatcher shows Ar for meet planning, CYD time screen shows Ar.
     result = timetable.next_train("NLS", "XP", "S", "09:45", 1)
     assert result is not None
     assert result["number"] == "2"
-    assert result["time"] == "09:50"
+    assert result["arrive"] == "09:50"
+    assert result["depart"] == "10:00"
 
 
 # ── location_by_id ───────────────────────────────────────────────────────────

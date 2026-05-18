@@ -84,7 +84,8 @@ static SemaphoreHandle_t  clkMutex = nullptr;
 // ── Schedule data ─────────────────────────────────────────────────────────
 struct TrainEntry {
     char num[8];
-    int  time;      // minutes since midnight, 0–1439
+    int  arrive;    // minutes since midnight, -1 if absent (origin stops)
+    int  depart;    // minutes since midnight, -1 if absent (terminus stops)
 };
 
 static char stationName[48]         = "---";
@@ -214,13 +215,15 @@ static void loadSchedule() {
     for (JsonObject e : doc[sta]["N"].as<JsonArray>()) {
         TrainEntry te;
         strlcpy(te.num, e["num"] | "?", sizeof(te.num));
-        te.time = e["time"] | 0;
+        te.arrive = e["arrive"] | -1;
+        te.depart = e["depart"] | -1;
         schedN.push_back(te);
     }
     for (JsonObject e : doc[sta]["S"].as<JsonArray>()) {
         TrainEntry te;
         strlcpy(te.num, e["num"] | "?", sizeof(te.num));
-        te.time = e["time"] | 0;
+        te.arrive = e["arrive"] | -1;
+        te.depart = e["depart"] | -1;
         schedS.push_back(te);
     }
 
@@ -257,7 +260,9 @@ static void minToTimeStr(int total_min, char* buf, size_t n) {
     snprintf(buf, n, "%d:%02d %s", h12, m, ampm);
 }
 
-// Fills out[] with a display string for the next train after cur_min.
+// Fills out[] with the next arriving train for the time screen.
+// Comparison uses depart (keeps a holding train visible until it leaves).
+// Display uses arrive; falls back to depart for origin-only stops.
 // If cur_min == -1 (not synced), writes "---".
 static void findNextTrain(const std::vector<TrainEntry>& sched, int cur_min,
                           char* out, size_t n) {
@@ -270,21 +275,23 @@ static void findNextTrain(const std::vector<TrainEntry>& sched, int cur_min,
         return;
     }
 
-    // Search for first entry with time >= cur_min
+    // Comparison key: depart if available, else arrive
     const TrainEntry* found = nullptr;
     for (const auto& e : sched) {
-        if (e.time >= cur_min) { found = &e; break; }
+        int cmp = (e.depart >= 0) ? e.depart : e.arrive;
+        if (cmp >= cur_min) { found = &e; break; }
     }
-    // Wrap to next day
     if (!found) found = &sched[0];
 
+    // Display time: arrive for time screen; fall back to depart for origin stops
+    int disp_min = (found->arrive >= 0) ? found->arrive : found->depart;
     char tstr[12];
-    int h = found->time / 60, m = found->time % 60;
+    int h = disp_min / 60, m = disp_min % 60;
     const char* ap = (h < 12) ? "AM" : "PM";
     int h12 = h % 12; if (h12 == 0) h12 = 12;
     snprintf(tstr, sizeof(tstr), "%d:%02d %s", h12, m, ap);
 
-    bool isNow = (found->time >= cur_min && found->time - cur_min <= NOW_WINDOW_MIN);
+    bool isNow = (disp_min >= cur_min && disp_min - cur_min <= NOW_WINDOW_MIN);
     if (isNow)
         snprintf(out, n, "  No.%-3s  NOW", found->num);
     else

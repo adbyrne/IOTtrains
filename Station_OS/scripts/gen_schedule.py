@@ -55,16 +55,21 @@ def main():
             loc_id = stop["location"]
             if loc_id not in schedule:
                 continue
-            # Prefer depart time for en-route reference; fall back to arrive
-            t_str = stop.get("depart") or stop.get("arrive")
-            if not t_str:
+            t_arrive = stop.get("arrive")
+            t_depart = stop.get("depart")
+            if not t_arrive and not t_depart:
                 continue
-            schedule[loc_id][direction].append({"num": num, "time": time_to_min(t_str)})
+            entry = {"num": num}
+            if t_arrive:
+                entry["arrive"] = time_to_min(t_arrive)
+            if t_depart:
+                entry["depart"] = time_to_min(t_depart)
+            schedule[loc_id][direction].append(entry)
 
-    # Sort by scheduled time within each direction
+    # Sort by arrive time (time screen reference); fall back to depart for origin stops
     for sta in schedule.values():
-        sta["N"].sort(key=lambda x: x["time"])
-        sta["S"].sort(key=lambda x: x["time"])
+        sta["N"].sort(key=lambda x: x.get("arrive", x.get("depart", 0)))
+        sta["S"].sort(key=lambda x: x.get("arrive", x.get("depart", 0)))
 
     output = {"station_order": station_order, **schedule}
 

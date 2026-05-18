@@ -39,8 +39,12 @@ def _time_minutes(t: str) -> int:
 
 
 def _stop_time(stop: dict) -> Optional[str]:
-    """Return the single most relevant time from a schedule stop."""
-    return stop.get("arrive") or stop.get("depart")
+    """Return comparison time for a stop: depart if present, else arrive.
+
+    Depart-first ensures a holding train stays visible until it actually leaves.
+    Falls back to arrive for terminus arrival-only stops.
+    """
+    return stop.get("depart") or stop.get("arrive")
 
 
 def locations(subdivision_id: str) -> list[dict]:
@@ -98,10 +102,11 @@ def next_train(
         for stop in train["schedule"]:
             if stop["location"] != location_id:
                 continue
-            t = _stop_time(stop)
-            if t is None:
+            # Depart-first: train stays visible until it actually leaves
+            t_cmp = stop.get("depart") or stop.get("arrive")
+            if t_cmp is None:
                 continue
-            t_min = _time_minutes(t)
+            t_min = _time_minutes(t_cmp)
             # Wrap past midnight: if we're late in the day and the train is early AM
             if t_min < now:
                 t_min += 24 * 60
@@ -112,7 +117,8 @@ def next_train(
                     "class": train["class"],
                     "service": train["service"],
                     "direction": train["direction"],
-                    "time": t,
+                    "arrive": stop.get("arrive"),
+                    "depart": stop.get("depart"),
                     "note": stop.get("note"),
                 }
             break  # each train appears at most once per location

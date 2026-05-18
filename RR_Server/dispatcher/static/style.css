@@ -177,9 +177,11 @@ main { padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; }
 .col-id   { font-family: monospace; font-size: 0.8rem; font-weight: 700; color: var(--muted); }
 .col-name { font-weight: 500; }
 .col-train { font-family: monospace; }
-.col-train .train-num  { font-weight: 600; }
-.col-train .train-time { color: var(--muted); margin-left: 6px; }
-.col-train .train-none { color: var(--offline); font-style: italic; font-family: sans-serif; }
+.col-train .train-num   { font-weight: 600; }
+.col-train .train-times { display: inline-flex; gap: 6px; margin-left: 6px; flex-wrap: wrap; }
+.col-train .train-arr   { color: #7dcc85; }
+.col-train .train-dep   { color: var(--accent); }
+.col-train .train-none  { color: var(--offline); font-style: italic; font-family: sans-serif; }
 
 .col-to {
     text-align: center;

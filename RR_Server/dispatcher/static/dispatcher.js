@@ -145,11 +145,22 @@ function updateAllNextTrains(nextTrains) {
     }
 }
 
+function fmtTime(t) {
+    if (!t) return '';
+    const [hStr, mStr] = t.split(':');
+    const h = parseInt(hStr, 10), m = parseInt(mStr, 10);
+    const ampm = h < 12 ? 'AM' : 'PM';
+    const h12 = h % 12 || 12;
+    return `${h12}:${String(m).padStart(2, '0')} ${ampm}`;
+}
+
 function updateNextTrain(sid, dir, train) {
     const el = document.getElementById(`nt-${sid}-${dir}`);
     if (!el) return;
     if (train) {
-        el.innerHTML = `<span class="train-num">No.&nbsp;${train.number}</span><span class="train-time">${train.time || ''}</span>`;
+        const ar = train.arrive ? `<span class="train-arr">Ar&nbsp;${fmtTime(train.arrive)}</span>` : '';
+        const dp = train.depart ? `<span class="train-dep">Dp&nbsp;${fmtTime(train.depart)}</span>` : '';
+        el.innerHTML = `<span class="train-num">No.&nbsp;${train.number}</span><span class="train-times">${ar}${dp}</span>`;
     } else {
         el.innerHTML = `<span class="train-none">—</span>`;
     }

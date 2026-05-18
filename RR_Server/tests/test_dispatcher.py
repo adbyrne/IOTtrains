@@ -68,7 +68,8 @@ class TestBuildNextTrains:
                 train = result[sid][direction]
                 if train is not None:
                     assert "number" in train
-                    assert "time" in train
+                    assert "arrive" in train
+                    assert "depart" in train
                     assert "direction" in train
                     return
         pytest.skip("No trains found in timetable")
