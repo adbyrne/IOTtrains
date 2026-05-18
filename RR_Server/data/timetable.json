@@ -372,6 +372,8 @@
           "schedule": [
             { "location": "WP_YARD", "depart": "00:15" },
             { "location": "XP",      "depart": "00:35" },
+            { "location": "BB",      "depart": "00:49" },
+            { "location": "JC",      "depart": "01:07" },
             { "location": "QM2",     "depart": "01:16" }
           ]
         },
