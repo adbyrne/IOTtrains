@@ -152,6 +152,8 @@ Scoping complete (2026-05-02). **Hardware needed before this session:** RPi3 + H
 - Section number: always `0` (sections assigned via TO — Session 2.2+)
 - **Completion:** station agent submits OS; dispatcher sees it logged; next-station timetable shown on CYD
 
+![Dispatcher UI — Session 2.1](screenshots/dispatcher_ui_session2.1.png)
+
 ### Session 2.2 — Train Orders
 _TO type definitions planning complete (2026-05-19) — `data/to_types.json` v1.0 defines all 6 types._
 - Dispatcher UI: structured TO form (type selector driven by `to_types.json`, field inputs per type, preview of generated text, multi-station selector, Issue button); TO signal arm raises on issue
