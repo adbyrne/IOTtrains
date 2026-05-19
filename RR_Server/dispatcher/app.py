@@ -152,8 +152,9 @@ async def lifespan(app: FastAPI):
         active_forms = list("ABCEFGHJKL")
     try:
         layout_rules = json.loads(LAYOUT_RULES_FILE.read_text())
+        layout_rules.setdefault("signal_reset_mode", "hard")
     except (FileNotFoundError, json.JSONDecodeError):
-        layout_rules = {"superior_direction": "S"}
+        layout_rules = {"superior_direction": "S", "signal_reset_mode": "hard"}
     mqtt_client = MQTTClient(config, state, build_next_trains)
     mqtt_client.start(asyncio.get_running_loop())
     log.info("Dispatcher started (v%s)", DISPATCHER_VERSION)
@@ -238,11 +239,6 @@ async def to_issue(request: Request):
     for station_id in addressed_to:
         mqtt_client.publish_to_order(station_id, payload)
 
-    for station_id in addressed_to:
-        if station_id in TO_SIGNAL_STATIONS:
-            mqtt_client.publish_signal_arm(station_id, "N", "raised")
-            mqtt_client.publish_signal_arm(station_id, "S", "raised")
-
     to_entry = {k: v for k, v in payload.items()}
     state.record_to(to_entry)
 
@@ -307,9 +303,12 @@ async def post_layout_rules(request: Request, _=Depends(_require_owner)):
     global layout_rules
     body = await request.json()
     sup_dir = body.get("superior_direction", "")
+    reset_mode = body.get("signal_reset_mode", "hard")
     if sup_dir not in ("N", "S"):
         return JSONResponse({"error": "superior_direction must be N or S"}, status_code=400)
-    layout_rules = {"superior_direction": sup_dir}
+    if reset_mode not in ("hard", "soft"):
+        return JSONResponse({"error": "signal_reset_mode must be hard or soft"}, status_code=400)
+    layout_rules = {"superior_direction": sup_dir, "signal_reset_mode": reset_mode}
     LAYOUT_RULES_FILE.write_text(json.dumps(layout_rules, indent=2))
     return JSONResponse({"ok": True, "layout_rules": layout_rules})
 

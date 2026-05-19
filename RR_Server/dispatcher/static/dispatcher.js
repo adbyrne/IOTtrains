@@ -36,6 +36,7 @@ let toTypes = {};       // to_types.json content from server
 let activeForms = [];   // active form letters from server
 let layoutRules = {};   // layout operating rules from server
 let toLogData = [];     // local mirror of issued TOs (newest first)
+let _signalStates = {};  // { sid: { N: 'raised'|'lowered', S: 'raised'|'lowered' } }
 
 // Clock interpolation state — updated on each clock_update event
 let _clockSnap = null;  // { rrMinutes, speed, running, day, receivedAt }
@@ -97,6 +98,7 @@ function handleInitialState(event) {
     populateToTypeSelect();
     populateToStationChecks();
     populateFormSelect();
+    updateAllSignalArms();
 }
 
 function handleClockUpdate(event) {
@@ -115,12 +117,14 @@ function handleToSignalUpdate(event) {
 function handleToIssued(event) {
     toLogData.unshift(event.to);
     refreshToLogModal();
+    updateAllSignalArms();
 }
 
 function handleToAck(event) {
     const entry = toLogData.find(e => e.seq === event.seq);
     if (entry) entry.acks[event.station_id] = event.ack;
     refreshToLogModal();
+    updateAllSignalArms();
 }
 
 // ── Clock display ────────────────────────────────────────────────────────────
@@ -202,30 +206,82 @@ function buildStationGrid(ids, names) {
     // Bind arm button clicks (event delegation on the table)
     table.addEventListener('click', e => {
         const btn = e.target.closest('.arm-btn');
-        if (!btn) return;
-        const sid = btn.dataset.sid;
-        const dir = btn.dataset.dir;
-        const cur = btn.dataset.state;
+        if (!btn || btn.disabled) return;
+        const sid  = btn.dataset.sid;
+        const dir  = btn.dataset.dir;
+        const cur  = btn.dataset.state;
         const next = cur === 'raised' ? 'lowered' : 'raised';
+
+        // Only check block/warn when trying to RAISE (clear) a lowered signal
+        if (cur === 'lowered' && !isSignalReadyToRaise(sid)) {
+            const mode = layoutRules.signal_reset_mode || 'hard';
+            if (mode === 'hard') return;   // button should be disabled; belt-and-suspenders
+            // Soft: confirmation dialog listing outstanding TOs
+            const pending = outstandingTosForStation(sid);
+            const lines = pending.map(to => {
+                const label = (toTypes.to_types?.[to.to_type]?.label) || to.to_type;
+                return `  #${to.seq} ${label} (${to.issued_rr_time})`;
+            }).join('\n');
+            if (!confirm(`Unacknowledged orders remain for ${sid}:\n${lines}\n\nClear signal anyway?`)) return;
+        }
+
         signalArmCmd(sid, dir, next);
     });
 }
 
 // C&O-type TO signals: UP arm (raised) = clear; DOWN arm (lowered) = stop for orders
 function armHtml(sid, dir, state) {
-    const isStop = state === 'lowered';
-    const cls    = isStop ? 'raised' : state === 'raised' ? 'lowered' : 'none';
-    const sym    = state === 'raised' ? '▲' : '▼';
-    const title  = isStop
-        ? 'DOWN — stop for orders (click to raise/clear)'
-        : 'UP — clear (click to lower for orders)';
-    return `<button class="arm-btn ${cls}" data-sid="${sid}" data-dir="${dir}" data-state="${state || 'raised'}" title="${title}">${sym}</button>`;
+    const isStopped = state === 'lowered';   // arm DOWN = train stopped for orders
+    const cls  = isStopped ? 'raised' : state === 'raised' ? 'lowered' : 'none';
+    const sym  = state === 'raised' ? '▲' : '▼';
+
+    let title, blocked = false;
+    if (isStopped) {
+        const ready = isSignalReadyToRaise(sid);
+        if (!ready && (layoutRules.signal_reset_mode || 'hard') === 'hard') {
+            blocked = true;
+            title = 'Outstanding unacknowledged orders — cannot clear until all ACKed';
+        } else {
+            title = 'DOWN — stop for orders (click to raise/clear)';
+        }
+    } else {
+        title = 'UP — clear (click to lower/activate for orders)';
+    }
+
+    return `<button class="arm-btn ${cls}${blocked ? ' blocked' : ''}" ` +
+        `data-sid="${sid}" data-dir="${dir}" data-state="${state || 'raised'}" ` +
+        `${blocked ? 'disabled ' : ''}title="${title}">${sym}</button>`;
 }
 
 function updateToSignal(sid, dir, state) {
+    if (!_signalStates[sid]) _signalStates[sid] = {};
+    _signalStates[sid][dir] = state;
     const el = document.getElementById(`to-${sid}-${dir}`);
     if (!el) return;
     el.innerHTML = armHtml(sid, dir, state);
+}
+
+function isSignalReadyToRaise(sid) {
+    // Ready to clear (raise) when all TOs addressed to this station have been ACKed by it
+    return toLogData.every(to =>
+        !to.addressed_to.includes(sid) || (to.acks && to.acks[sid])
+    );
+}
+
+function outstandingTosForStation(sid) {
+    return toLogData.filter(to =>
+        to.addressed_to.includes(sid) && !(to.acks && to.acks[sid])
+    );
+}
+
+function updateAllSignalArms() {
+    for (const sid of toSignalStations) {
+        for (const dir of ['N', 'S']) {
+            const state = (_signalStates[sid] || {})[dir] || 'raised';
+            const el = document.getElementById(`to-${sid}-${dir}`);
+            if (el) el.innerHTML = armHtml(sid, dir, state);
+        }
+    }
 }
 
 function updateStationStatus(sid, status) {
@@ -362,6 +418,19 @@ function initControls() {
     document.getElementById('btn-to-submit').onclick = () => submitToOrder();
     document.getElementById('to-form-select').onchange = () =>
         validateToForm(document.getElementById('to-type-select').value);
+
+    document.getElementById('btn-to-continue').onclick = () => {
+        const selected = [...document.querySelectorAll('#to-signal-select input:checked')]
+                          .map(el => el.value);
+        advanceToStep2(selected);
+    };
+    document.getElementById('btn-to-skip').onclick = () => advanceToStep2([]);
+    document.getElementById('btn-to-back').onclick = () => {
+        document.getElementById('to-step-1-body').hidden = false;
+        document.getElementById('to-step-2-body').hidden = true;
+        document.getElementById('to-step-badge').textContent = 'Step 1 of 2 — Signals';
+        buildSignalStationList();
+    };
 
     // Close modals on overlay click
     document.getElementById('modal-to-issue').addEventListener('click', e => {
@@ -647,23 +716,69 @@ async function submitToOrder() {
 }
 
 function openToModal() {
-    document.getElementById('to-form-select').value = '';
-    const sel = document.getElementById('to-type-select');
-    if (sel.options.length > 0) {
-        buildToFields(sel.value);
-        updateToPreview();
-    }
-    // Pre-select all stations
-    document.querySelectorAll('#to-stations input').forEach(el => {
-        el.checked = true;
-        el.closest('.station-check-item').classList.add('checked');
-    });
-    document.getElementById('to-issue-err').textContent = '';
+    // Show Step 1
+    document.getElementById('to-step-1-body').hidden = false;
+    document.getElementById('to-step-2-body').hidden = true;
+    document.getElementById('to-step-badge').textContent = 'Step 1 of 2 — Signals';
+    buildSignalStationList();
     document.getElementById('modal-to-issue').hidden = false;
 }
 
 function closeToModal() {
     document.getElementById('modal-to-issue').hidden = true;
+}
+
+function buildSignalStationList() {
+    const container = document.getElementById('to-signal-select');
+    container.innerHTML = '';
+    if (toSignalStations.size === 0) {
+        container.innerHTML = '<em class="muted">No signal stations configured.</em>';
+        return;
+    }
+    for (const sid of toSignalStations) {
+        const states  = _signalStates[sid] || {};
+        const isActive = Object.values(states).some(s => s === 'lowered');
+        const outstanding = outstandingTosForStation(sid);
+        const item = document.createElement('label');
+        item.className = 'to-signal-item' + (isActive ? ' to-signal-item-active' : '');
+        item.innerHTML =
+            `<input type="checkbox" value="${sid}"${isActive ? ' disabled' : ''}>` +
+            `<span class="to-signal-id">${sid}</span>` +
+            `<span class="to-signal-name">${stationNames[sid] || sid}</span>` +
+            (isActive
+                ? `<span class="to-signal-status">${outstanding.length} outstanding order${outstanding.length !== 1 ? 's' : ''}</span>`
+                : '');
+        container.appendChild(item);
+    }
+}
+
+async function advanceToStep2(preSelected) {
+    // Lower arms for selected signal stations
+    const lowerCmds = [];
+    for (const sid of preSelected) {
+        lowerCmds.push(signalArmCmd(sid, 'N', 'lowered'));
+        lowerCmds.push(signalArmCmd(sid, 'S', 'lowered'));
+    }
+    await Promise.all(lowerCmds);
+
+    // Switch to Step 2
+    document.getElementById('to-step-1-body').hidden = true;
+    document.getElementById('to-step-2-body').hidden = false;
+    document.getElementById('to-step-badge').textContent = 'Step 2 of 2 — Order';
+
+    // Pre-select addressed_to from the stations we just raised signals for
+    document.querySelectorAll('#to-stations input').forEach(el => {
+        const checked = preSelected.includes(el.value);
+        el.checked = checked;
+        el.closest('.station-check-item').classList.toggle('checked', checked);
+    });
+
+    // Reset form state
+    document.getElementById('to-form-select').value = '';
+    document.getElementById('to-issue-err').textContent = '';
+    const sel = document.getElementById('to-type-select');
+    if (sel.options.length > 0) { buildToFields(sel.value); updateToPreview(); }
+    validateToForm(document.getElementById('to-type-select').value);
 }
 
 // ── TO Log modal ──────────────────────────────────────────────────────────────
@@ -685,13 +800,30 @@ function toLogEntryHtml(entry) {
     </div>`;
 }
 
+function isToFullyAcked(to) {
+    return to.addressed_to.length > 0 &&
+           to.addressed_to.every(sid => to.acks && to.acks[sid]);
+}
+
 function refreshToLogModal() {
     const container = document.getElementById('to-log-list');
     if (toLogData.length === 0) {
         container.innerHTML = '<em class="muted">No orders issued yet.</em>';
         return;
     }
-    container.innerHTML = toLogData.map(toLogEntryHtml).join('');
+    const outstanding   = toLogData.filter(to => !isToFullyAcked(to));
+    const acknowledged  = toLogData.filter(to =>  isToFullyAcked(to));
+    container.innerHTML =
+        `<div class="to-log-columns">` +
+            `<div class="to-log-col">` +
+                `<div class="to-log-col-header">Outstanding (${outstanding.length})</div>` +
+                `<div class="to-log-col-body">${outstanding.length ? outstanding.map(toLogEntryHtml).join('') : '<em class="muted">None</em>'}</div>` +
+            `</div>` +
+            `<div class="to-log-col">` +
+                `<div class="to-log-col-header">Acknowledged (${acknowledged.length})</div>` +
+                `<div class="to-log-col-body">${acknowledged.length ? acknowledged.map(toLogEntryHtml).join('') : '<em class="muted">None</em>'}</div>` +
+            `</div>` +
+        `</div>`;
 }
 
 function openToLogModal() {

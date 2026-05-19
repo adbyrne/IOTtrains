@@ -701,3 +701,71 @@ main { padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; }
     padding: 5px 8px;
     font-size: 0.82rem;
 }
+
+/* ── TO modal: two-step ──────────────────────────────────────────── */
+.to-step-badge {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-left: 8px;
+}
+
+.to-signal-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 4px 0;
+}
+
+.to-signal-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 8px 12px;
+    cursor: pointer;
+    user-select: none;
+}
+.to-signal-item input { cursor: pointer; }
+.to-signal-item:not(.to-signal-item-active):hover { border-color: var(--accent); }
+.to-signal-item-active { opacity: 0.55; cursor: default; }
+
+.to-signal-id   { font-family: monospace; font-weight: 700; font-size: 0.9rem; min-width: 32px; }
+.to-signal-name { flex: 1; font-size: 0.88rem; }
+.to-signal-status {
+    font-size: 0.75rem;
+    color: #e07055;
+    font-style: italic;
+}
+
+/* ── Signal arm: hard-blocked ────────────────────────────────────── */
+.arm-btn.blocked { opacity: 0.35; cursor: not-allowed; }
+
+/* ── TO Log: two-column ──────────────────────────────────────────── */
+.to-log-columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    min-height: 80px;
+}
+
+.to-log-col-header {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 8px;
+}
+
+.to-log-col-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}

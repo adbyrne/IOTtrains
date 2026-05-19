@@ -31,6 +31,20 @@
                 </div>
                 <span class="hint">Sets which direction holds the main in a meet. Check the timetable note (e.g. "SOUTHWARD TRAINS ARE SUPERIOR BY DIRECTION").</span>
             </div>
+            <div class="form-row">
+                <label>Signal Reset Mode</label>
+                <div class="radio-group" id="sig-reset-group">
+                    <label class="radio-item">
+                        <input type="radio" name="sig-reset" value="hard">
+                        <strong>Hard block</strong> — cannot clear a signal until all orders acknowledged
+                    </label>
+                    <label class="radio-item">
+                        <input type="radio" name="sig-reset" value="soft">
+                        <strong>Soft warning</strong> — confirmation dialog shows outstanding orders, dispatcher can override
+                    </label>
+                </div>
+                <span class="hint">Hard block is the safer default. Soft warning allows override when ACKs cannot be received (e.g. radio failure).</span>
+            </div>
             <div class="form-actions">
                 <button id="btn-save-rules" class="btn primary">Save</button>
                 <span id="rules-status"></span>
@@ -193,17 +207,21 @@ async function loadRules() {
     const rules = await r.json();
     const supDir = rules.superior_direction || 'S';
     document.querySelector(`input[name="sup-dir"][value="${supDir}"]`).checked = true;
+    const resetMode = rules.signal_reset_mode || 'hard';
+    const resetEl = document.querySelector(`input[name="sig-reset"][value="${resetMode}"]`);
+    if (resetEl) resetEl.checked = true;
 }
 
 document.getElementById('btn-save-rules').onclick = async () => {
     const sel = document.querySelector('input[name="sup-dir"]:checked');
     const statusEl = document.getElementById('rules-status');
     if (!sel) { statusEl.textContent = 'Select a direction'; statusEl.className = 'form-err'; return; }
+    const resetMode = document.querySelector('input[name="sig-reset"]:checked')?.value || 'hard';
     try {
         const r = await fetch('/api/layout_rules', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ superior_direction: sel.value }),
+            body: JSON.stringify({ superior_direction: sel.value, signal_reset_mode: resetMode }),
         });
         const body = await r.json();
         if (!r.ok) { statusEl.textContent = body.error || 'Error'; statusEl.className = 'form-err'; return; }

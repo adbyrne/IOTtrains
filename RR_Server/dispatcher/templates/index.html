@@ -104,9 +104,22 @@
     <div class="modal">
         <div class="modal-header">
             <span>Issue Train Order</span>
+            <span id="to-step-badge" class="to-step-badge">Step 1 of 2 — Signals</span>
             <button class="modal-close" id="btn-to-issue-close">&times;</button>
         </div>
-        <div class="modal-body">
+
+        <!-- Step 1: Signal activation -->
+        <div id="to-step-1-body" class="modal-body">
+            <p class="hint">Lower signal arms to stop trains at the selected stations. Stations with arms already down have an outstanding order and cannot be reselected.</p>
+            <div id="to-signal-select" class="to-signal-grid"></div>
+            <div class="form-actions">
+                <button id="btn-to-continue" class="btn primary">Continue →</button>
+                <button id="btn-to-skip" class="btn">No signals needed →</button>
+            </div>
+        </div>
+
+        <!-- Step 2: TO form -->
+        <div id="to-step-2-body" class="modal-body" hidden>
             <div class="form-row">
                 <label for="to-form-select">Form</label>
                 <select id="to-form-select">
@@ -124,6 +137,7 @@
             </div>
             <div id="to-preview" class="to-preview"></div>
             <div class="form-actions">
+                <button id="btn-to-back" class="btn">← Back</button>
                 <button id="btn-to-submit" class="btn primary" disabled>Issue</button>
                 <span id="to-issue-err" class="form-err"></span>
             </div>
