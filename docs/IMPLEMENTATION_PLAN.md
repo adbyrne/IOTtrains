@@ -38,7 +38,7 @@
 - systemd `rr-dispatcher` unit started and enabled
 - **Completion:** working page at `http://192.168.86.36:5000` showing live clock, station status, next trains, and TO signal indicators
 
-![Dispatcher UI](screenshots/dispatcher_ui_session1.3.png)
+![Dispatcher UI — Session 1.3](screenshots/dispatcher_ui_session2.1.png)
 
 ### Session 1.4 — Station_OS: Clock + Network ✅ COMPLETE (2026-05-17, hardware tested 2026-05-17)
 - Provisioning: NVS serial CLI (`help`, `set <key> <value>`, `save`, `clear`) — same pattern as TO_Signal
