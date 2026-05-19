@@ -37,6 +37,9 @@ let activeForms = [];   // active form letters from server
 let layoutRules = {};   // layout operating rules from server
 let toLogData = [];     // local mirror of issued TOs (newest first)
 
+// Clock interpolation state — updated on each clock_update event
+let _clockSnap = null;  // { rrMinutes, speed, running, day, receivedAt }
+
 // ── WebSocket ────────────────────────────────────────────────────────────────
 
 function connect() {
@@ -122,18 +125,52 @@ function handleToAck(event) {
 
 // ── Clock display ────────────────────────────────────────────────────────────
 
+function _fmt12(totalMinutes) {
+    totalMinutes = ((Math.round(totalMinutes) % 1440) + 1440) % 1440;
+    const h24 = Math.floor(totalMinutes / 60);
+    const m = totalMinutes % 60;
+    const ampm = h24 < 12 ? 'AM' : 'PM';
+    let h12 = h24 % 12;
+    if (h12 === 0) h12 = 12;
+    return `${h12}:${String(m).padStart(2, '0')} ${ampm}`;
+}
+
 function updateClock(clock) {
     if (!clock || Object.keys(clock).length === 0) {
+        _clockSnap = null;
         document.getElementById('clock-time').textContent = '--:-- --';
         document.getElementById('clock-day').textContent = '—';
         document.getElementById('clock-speed').textContent = '';
         setBadge('unknown');
         return;
     }
-    document.getElementById('clock-time').textContent = clock.time || '--:-- --';
-    document.getElementById('clock-day').textContent = DAYS[clock.day] || '—';
-    document.getElementById('clock-speed').textContent = `${clock.speed}× speed`;
-    setBadge(clock.running ? 'running' : 'paused');
+    _clockSnap = {
+        rrMinutes: clock.hour * 60 + clock.minute,
+        speed:     clock.speed,
+        running:   clock.running,
+        day:       clock.day,
+        receivedAt: Date.now(),
+    };
+    _renderClockDisplay();
+}
+
+function _renderClockDisplay() {
+    if (!_clockSnap) return;
+    const { rrMinutes, speed, running, day, receivedAt } = _clockSnap;
+    let current = rrMinutes;
+    let currentDay = day;
+    if (running) {
+        const elapsedSec = (Date.now() - receivedAt) / 1000;
+        const added = (elapsedSec / 60) * speed;
+        const total = rrMinutes + added;
+        const dayOffset = Math.floor(total / 1440);
+        current = ((total % 1440) + 1440) % 1440;
+        currentDay = ((day - 1 + dayOffset) % 7) + 1;
+    }
+    document.getElementById('clock-time').textContent = _fmt12(current);
+    document.getElementById('clock-day').textContent = DAYS[currentDay] || '—';
+    document.getElementById('clock-speed').textContent = `${speed}× speed`;
+    setBadge(running ? 'running' : 'paused');
 }
 
 function setBadge(state) {
@@ -683,4 +720,5 @@ function escHtml(s) {
 document.addEventListener('DOMContentLoaded', () => {
     initControls();
     connect();
+    setInterval(_renderClockDisplay, 1000);
 });

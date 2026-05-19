@@ -317,6 +317,7 @@ class TestOsReport:
 MEET_FIELDS = {
     "train_a": "3",
     "engine_a": "101",
+    "direction_a": "S",
     "train_b_is_extra": True,
     "train_b": "42",
     "direction_b": "N",

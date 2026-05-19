@@ -314,6 +314,105 @@ async def post_layout_rules(request: Request, _=Depends(_require_owner)):
     return JSONResponse({"ok": True, "layout_rules": layout_rules})
 
 
+@app.get("/api/timetable")
+async def get_timetable(_=Depends(_require_owner)):
+    data = timetable.get()
+    if data is None:
+        return JSONResponse({"error": "timetable not loaded"}, status_code=503)
+    return JSONResponse(data)
+
+
+@app.post("/api/timetable/meta")
+async def post_timetable_meta(request: Request, _=Depends(_require_owner)):
+    body = await request.json()
+    data = timetable.get()
+    if data is None:
+        return JSONResponse({"error": "timetable not loaded"}, status_code=503)
+    import copy
+    data = copy.deepcopy(data)
+    meta = data.setdefault("timetable", {})
+    for field in ("number", "title", "effective"):
+        if field in body:
+            meta[field] = body[field]
+    if "notes" in body:
+        if not isinstance(body["notes"], list):
+            return JSONResponse({"error": "notes must be a list"}, status_code=400)
+        meta["notes"] = body["notes"]
+    try:
+        timetable.save(data)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+    return JSONResponse({"ok": True, "timetable": data["timetable"]})
+
+
+@app.post("/api/timetable/train")
+async def post_timetable_train(request: Request, _=Depends(_require_owner)):
+    body = await request.json()
+    subdivision_id = body.get("subdivision", SUBDIVISION)
+    number = body.get("number", "")
+    direction = body.get("direction", "")
+    if not number or direction not in ("N", "S"):
+        return JSONResponse({"error": "number and direction (N/S) required"}, status_code=400)
+    data = timetable.get()
+    if data is None:
+        return JSONResponse({"error": "timetable not loaded"}, status_code=503)
+    import copy
+    data = copy.deepcopy(data)
+    for sub in data["subdivisions"]:
+        if sub["id"] == subdivision_id:
+            trains = sub["trains"]
+            # Upsert: replace existing train with same number+direction, else append
+            for i, t in enumerate(trains):
+                if t["number"] == number and t["direction"] == direction:
+                    trains[i] = body
+                    break
+            else:
+                trains.append(body)
+            break
+    else:
+        return JSONResponse({"error": f"subdivision {subdivision_id!r} not found"}, status_code=400)
+    try:
+        timetable.save(data)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+    return JSONResponse({"ok": True})
+
+
+@app.delete("/api/timetable/train")
+async def delete_timetable_train(request: Request, _=Depends(_require_owner)):
+    body = await request.json()
+    subdivision_id = body.get("subdivision", SUBDIVISION)
+    number = body.get("number", "")
+    direction = body.get("direction", "")
+    data = timetable.get()
+    if data is None:
+        return JSONResponse({"error": "timetable not loaded"}, status_code=503)
+    import copy
+    data = copy.deepcopy(data)
+    for sub in data["subdivisions"]:
+        if sub["id"] == subdivision_id:
+            before = len(sub["trains"])
+            sub["trains"] = [t for t in sub["trains"]
+                             if not (t["number"] == number and t["direction"] == direction)]
+            if len(sub["trains"]) == before:
+                return JSONResponse({"error": "train not found"}, status_code=404)
+            break
+    try:
+        timetable.save(data)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+    return JSONResponse({"ok": True})
+
+
+@app.post("/api/timetable/reload")
+async def post_timetable_reload(_=Depends(_require_owner)):
+    try:
+        timetable.reload()
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+    return JSONResponse({"ok": True})
+
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await state.connect(websocket)

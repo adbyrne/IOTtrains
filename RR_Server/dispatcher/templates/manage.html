@@ -15,6 +15,7 @@
 </header>
 
 <main>
+    <!-- ── Layout Rules ─────────────────────────────────────── -->
     <div class="manage-panel">
         <div class="manage-panel-header">Layout Rules</div>
         <div class="manage-panel-body">
@@ -37,6 +38,7 @@
         </div>
     </div>
 
+    <!-- ── Active Train Order Forms ─────────────────────────── -->
     <div class="manage-panel">
         <div class="manage-panel-header">Active Train Order Forms</div>
         <div class="manage-panel-body">
@@ -46,6 +48,107 @@
                 <button id="btn-save" class="btn primary">Save</button>
                 <span id="save-status"></span>
             </div>
+        </div>
+    </div>
+
+    <!-- ── Timetable Info ────────────────────────────────────── -->
+    <div class="manage-panel">
+        <div class="manage-panel-header">Timetable Info</div>
+        <div class="manage-panel-body">
+            <div class="tt-meta-grid">
+                <label>TT Number</label>
+                <input id="tt-number" type="text" class="tt-input-short" placeholder="4">
+                <label>Title</label>
+                <input id="tt-title" type="text" class="tt-input-wide" placeholder="Northern Lights Subdivision Employee Timetable No. 4">
+                <label>Effective Date</label>
+                <input id="tt-effective" type="text" class="tt-input-short" placeholder="1904-12-31">
+                <label>Notes</label>
+                <textarea id="tt-notes" class="tt-input-notes" rows="4" placeholder="One note per line"></textarea>
+            </div>
+            <div class="form-actions">
+                <button id="btn-save-meta" class="btn primary">Save</button>
+                <span id="meta-status"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Train Schedules ───────────────────────────────────── -->
+    <div class="manage-panel">
+        <div class="manage-panel-header">
+            Train Schedules
+            <button id="btn-add-train" class="btn secondary manage-header-btn">+ Add Train</button>
+        </div>
+        <div class="manage-panel-body">
+            <p class="muted manage-desc">Click a row to edit stops. Changes take effect immediately without restarting the dispatcher.</p>
+
+            <!-- Add/Edit form (hidden by default) -->
+            <div id="train-editor" class="train-editor hidden">
+                <div class="train-editor-header">
+                    <span id="train-editor-title">New Train</span>
+                    <button id="btn-editor-cancel" class="btn secondary small">Cancel</button>
+                </div>
+                <div class="train-editor-fields">
+                    <div class="te-field-row">
+                        <label>Number</label>
+                        <input id="te-number" type="text" class="te-input-short" placeholder="1">
+                        <label>Class</label>
+                        <select id="te-class">
+                            <option value="1">1st</option>
+                            <option value="2">2nd</option>
+                            <option value="3">3rd</option>
+                        </select>
+                        <label>Service</label>
+                        <input id="te-service" type="text" class="te-input-short" placeholder="Pass">
+                        <label>Direction</label>
+                        <select id="te-direction">
+                            <option value="N">Northward</option>
+                            <option value="S">Southward</option>
+                        </select>
+                    </div>
+                    <div class="te-field-row">
+                        <label>Days</label>
+                        <div class="te-days-group" id="te-days">
+                            <label class="te-day"><input type="checkbox" value="1" checked> Mo</label>
+                            <label class="te-day"><input type="checkbox" value="2" checked> Tu</label>
+                            <label class="te-day"><input type="checkbox" value="3" checked> We</label>
+                            <label class="te-day"><input type="checkbox" value="4" checked> Th</label>
+                            <label class="te-day"><input type="checkbox" value="5" checked> Fr</label>
+                            <label class="te-day"><input type="checkbox" value="6" checked> Sa</label>
+                            <label class="te-day"><input type="checkbox" value="7" checked> Su</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="te-stops-section">
+                    <div class="te-stops-header">
+                        <span>Stops</span>
+                        <button id="btn-add-stop" class="btn secondary small">+ Stop</button>
+                    </div>
+                    <div id="te-stops-list" class="te-stops-list"></div>
+                </div>
+
+                <div class="form-actions">
+                    <button id="btn-save-train" class="btn primary">Save Train</button>
+                    <button id="btn-delete-train" class="btn danger hidden">Delete Train</button>
+                    <span id="train-status"></span>
+                </div>
+            </div>
+
+            <!-- Train table -->
+            <table id="train-table" class="tt-table">
+                <thead>
+                    <tr>
+                        <th>No.</th>
+                        <th>Dir</th>
+                        <th>Cl</th>
+                        <th>Service</th>
+                        <th>Days</th>
+                        <th>From</th>
+                        <th>To</th>
+                    </tr>
+                </thead>
+                <tbody id="train-tbody"></tbody>
+            </table>
         </div>
     </div>
 </main>
@@ -77,6 +180,14 @@ const ALL_FORMS = [
     { letter: 'Z', desc: 'Relief of Flag Protection' },
 ];
 
+const DAYS_ABBR = ['', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+
+let _timetable = null;
+let _editingTrain = null;   // null = new, {number, direction} = existing
+let _allLocations = [];     // from timetable.subdivisions[NLS].locations
+
+// ── Layout Rules ────────────────────────────────────────────────────────────
+
 async function loadRules() {
     const r = await fetch('/api/layout_rules');
     const rules = await r.json();
@@ -104,11 +215,12 @@ document.getElementById('btn-save-rules').onclick = async () => {
     }
 };
 
-async function load() {
+// ── Active Forms ─────────────────────────────────────────────────────────────
+
+async function loadForms() {
     const r = await fetch('/api/active_forms');
     const { active_forms } = await r.json();
     const active = new Set(active_forms);
-
     const container = document.getElementById('form-list');
     container.innerHTML = '';
     for (const f of ALL_FORMS) {
@@ -136,11 +248,7 @@ document.getElementById('btn-save').onclick = async () => {
             body: JSON.stringify({ active_forms }),
         });
         const body = await r.json();
-        if (!r.ok) {
-            statusEl.textContent = body.error || 'Error';
-            statusEl.className = 'form-err';
-            return;
-        }
+        if (!r.ok) { statusEl.textContent = body.error || 'Error'; statusEl.className = 'form-err'; return; }
         statusEl.textContent = 'Saved — reload dispatcher to apply';
         statusEl.className = 'form-ok';
     } catch {
@@ -149,8 +257,295 @@ document.getElementById('btn-save').onclick = async () => {
     }
 };
 
+// ── Timetable ────────────────────────────────────────────────────────────────
+
+async function loadTimetable() {
+    const r = await fetch('/api/timetable');
+    if (!r.ok) { console.error('timetable load failed'); return; }
+    _timetable = await r.json();
+
+    // extract NLS locations for stop dropdowns
+    const nls = (_timetable.subdivisions || []).find(s => s.id === 'NLS');
+    _allLocations = nls ? nls.locations : [];
+
+    renderMeta();
+    renderTrainTable();
+}
+
+function renderMeta() {
+    const m = _timetable.timetable || {};
+    document.getElementById('tt-number').value    = m.number    || '';
+    document.getElementById('tt-title').value     = m.title     || '';
+    document.getElementById('tt-effective').value = m.effective || '';
+    document.getElementById('tt-notes').value     = (m.notes || []).join('\n');
+}
+
+document.getElementById('btn-save-meta').onclick = async () => {
+    const statusEl = document.getElementById('meta-status');
+    const notes = document.getElementById('tt-notes').value
+                    .split('\n').map(l => l.trim()).filter(Boolean);
+    const body = {
+        number:    document.getElementById('tt-number').value.trim(),
+        title:     document.getElementById('tt-title').value.trim(),
+        effective: document.getElementById('tt-effective').value.trim(),
+        notes,
+    };
+    try {
+        const r = await fetch('/api/timetable/meta', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        const res = await r.json();
+        if (!r.ok) { statusEl.textContent = res.error || 'Error'; statusEl.className = 'form-err'; return; }
+        statusEl.textContent = 'Saved';
+        statusEl.className = 'form-ok';
+        await loadTimetable();
+    } catch {
+        statusEl.textContent = 'Request failed';
+        statusEl.className = 'form-err';
+    }
+};
+
+// ── Train Table ──────────────────────────────────────────────────────────────
+
+function renderTrainTable() {
+    const nls = (_timetable.subdivisions || []).find(s => s.id === 'NLS');
+    const trains = nls ? nls.trains : [];
+    const tbody = document.getElementById('train-tbody');
+    tbody.innerHTML = '';
+
+    const sorted = [...trains].sort((a, b) => {
+        if (a.direction !== b.direction) return a.direction === 'S' ? 1 : -1;
+        return parseInt(a.number) - parseInt(b.number);
+    });
+
+    for (const t of sorted) {
+        const stops = t.schedule || [];
+        const from  = stops[0]?.location || '—';
+        const to    = stops[stops.length - 1]?.location || '—';
+        const days  = (t.days || []).map(d => DAYS_ABBR[d]).join(' ');
+        const tr = document.createElement('tr');
+        tr.className = 'tt-train-row';
+        tr.innerHTML =
+            `<td class="tt-cell-num">${t.number}</td>` +
+            `<td class="tt-cell-dir ${t.direction === 'N' ? 'dir-n' : 'dir-s'}">${t.direction}</td>` +
+            `<td>${t.class}</td>` +
+            `<td>${t.service || ''}</td>` +
+            `<td class="tt-cell-days">${days}</td>` +
+            `<td>${from}</td>` +
+            `<td>${to}</td>`;
+        tr.onclick = () => openEditor(t);
+        tbody.appendChild(tr);
+    }
+}
+
+// ── Train Editor ─────────────────────────────────────────────────────────────
+
+document.getElementById('btn-add-train').onclick = () => openEditor(null);
+document.getElementById('btn-editor-cancel').onclick = closeEditor;
+
+function openEditor(train) {
+    _editingTrain = train;
+    const editor = document.getElementById('train-editor');
+    editor.classList.remove('hidden');
+
+    document.getElementById('train-editor-title').textContent =
+        train ? `Edit Train No. ${train.number} (${train.direction})` : 'New Train';
+    document.getElementById('btn-delete-train').classList.toggle('hidden', !train);
+    document.getElementById('train-status').textContent = '';
+
+    if (train) {
+        document.getElementById('te-number').value    = train.number;
+        document.getElementById('te-class').value     = String(train.class);
+        document.getElementById('te-service').value   = train.service || '';
+        document.getElementById('te-direction').value = train.direction;
+        const days = new Set(train.days || []);
+        document.querySelectorAll('#te-days input').forEach(cb =>
+            cb.checked = days.has(parseInt(cb.value)));
+        renderStopList(train.schedule || []);
+    } else {
+        document.getElementById('te-number').value    = '';
+        document.getElementById('te-class').value     = '1';
+        document.getElementById('te-service').value   = '';
+        document.getElementById('te-direction').value = 'N';
+        document.querySelectorAll('#te-days input').forEach(cb => cb.checked = true);
+        renderStopList([]);
+    }
+
+    editor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function closeEditor() {
+    document.getElementById('train-editor').classList.add('hidden');
+    _editingTrain = null;
+}
+
+function renderStopList(stops) {
+    const list = document.getElementById('te-stops-list');
+    list.innerHTML = '';
+    for (let i = 0; i < stops.length; i++) {
+        list.appendChild(makeStopRow(stops[i], i));
+    }
+}
+
+function makeStopRow(stop, idx) {
+    const row = document.createElement('div');
+    row.className = 'te-stop-row';
+    row.dataset.idx = idx;
+
+    const locSelect = makeLocationSelect(stop.location || '');
+    locSelect.className = 'te-stop-loc';
+
+    const arrInput = document.createElement('input');
+    arrInput.type = 'text'; arrInput.placeholder = 'Arr HH:MM';
+    arrInput.className = 'te-stop-time'; arrInput.value = stop.arrive || '';
+    arrInput.title = 'Arrive';
+
+    const depInput = document.createElement('input');
+    depInput.type = 'text'; depInput.placeholder = 'Dep HH:MM';
+    depInput.className = 'te-stop-time'; depInput.value = stop.depart || '';
+    depInput.title = 'Depart';
+
+    const noteInput = document.createElement('input');
+    noteInput.type = 'text'; noteInput.placeholder = 'Note (optional)';
+    noteInput.className = 'te-stop-note'; noteInput.value = stop.note || '';
+
+    const upBtn = document.createElement('button');
+    upBtn.textContent = '↑'; upBtn.className = 'btn secondary small te-stop-btn';
+    upBtn.title = 'Move up';
+    upBtn.onclick = () => moveStop(idx, -1);
+
+    const downBtn = document.createElement('button');
+    downBtn.textContent = '↓'; downBtn.className = 'btn secondary small te-stop-btn';
+    downBtn.title = 'Move down';
+    downBtn.onclick = () => moveStop(idx, 1);
+
+    const delBtn = document.createElement('button');
+    delBtn.textContent = '×'; delBtn.className = 'btn danger small te-stop-btn';
+    delBtn.title = 'Remove stop';
+    delBtn.onclick = () => removeStop(idx);
+
+    row.appendChild(locSelect);
+    row.appendChild(arrInput);
+    row.appendChild(depInput);
+    row.appendChild(noteInput);
+    row.appendChild(upBtn);
+    row.appendChild(downBtn);
+    row.appendChild(delBtn);
+    return row;
+}
+
+function makeLocationSelect(selected) {
+    const sel = document.createElement('select');
+    const blank = document.createElement('option');
+    blank.value = ''; blank.textContent = '— location —';
+    sel.appendChild(blank);
+    for (const loc of _allLocations) {
+        const opt = document.createElement('option');
+        opt.value = loc.id;
+        opt.textContent = loc.id + ' — ' + loc.name;
+        if (loc.id === selected) opt.selected = true;
+        sel.appendChild(opt);
+    }
+    return sel;
+}
+
+function collectStops() {
+    return [...document.querySelectorAll('#te-stops-list .te-stop-row')].map(row => {
+        const stop = { location: row.querySelector('.te-stop-loc').value };
+        const arr = row.querySelector('.te-stop-time:first-of-type')?.value?.trim();
+        const dep = row.querySelectorAll('.te-stop-time')[1]?.value?.trim();
+        const note = row.querySelector('.te-stop-note')?.value?.trim();
+        if (arr) stop.arrive = arr;
+        if (dep) stop.depart = dep;
+        if (note) stop.note = note;
+        return stop;
+    }).filter(s => s.location);
+}
+
+function moveStop(idx, delta) {
+    const stops = collectStops();
+    const target = idx + delta;
+    if (target < 0 || target >= stops.length) return;
+    [stops[idx], stops[target]] = [stops[target], stops[idx]];
+    renderStopList(stops);
+}
+
+function removeStop(idx) {
+    const stops = collectStops();
+    stops.splice(idx, 1);
+    renderStopList(stops);
+}
+
+document.getElementById('btn-add-stop').onclick = () => {
+    const stops = collectStops();
+    stops.push({ location: '' });
+    renderStopList(stops);
+};
+
+document.getElementById('btn-save-train').onclick = async () => {
+    const statusEl = document.getElementById('train-status');
+    const number = document.getElementById('te-number').value.trim();
+    const direction = document.getElementById('te-direction').value;
+    if (!number) { statusEl.textContent = 'Train number required'; statusEl.className = 'form-err'; return; }
+
+    const days = [...document.querySelectorAll('#te-days input:checked')]
+                   .map(cb => parseInt(cb.value));
+    const schedule = collectStops();
+
+    const train = {
+        number,
+        class:     parseInt(document.getElementById('te-class').value),
+        service:   document.getElementById('te-service').value.trim(),
+        direction,
+        days,
+        schedule,
+    };
+
+    try {
+        const r = await fetch('/api/timetable/train', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(train),
+        });
+        const res = await r.json();
+        if (!r.ok) { statusEl.textContent = res.error || 'Error'; statusEl.className = 'form-err'; return; }
+        statusEl.textContent = 'Saved';
+        statusEl.className = 'form-ok';
+        await loadTimetable();
+        closeEditor();
+    } catch {
+        statusEl.textContent = 'Request failed';
+        statusEl.className = 'form-err';
+    }
+};
+
+document.getElementById('btn-delete-train').onclick = async () => {
+    if (!_editingTrain) return;
+    if (!confirm(`Delete Train No. ${_editingTrain.number} (${_editingTrain.direction})?`)) return;
+    const statusEl = document.getElementById('train-status');
+    try {
+        const r = await fetch('/api/timetable/train', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ number: _editingTrain.number, direction: _editingTrain.direction }),
+        });
+        const res = await r.json();
+        if (!r.ok) { statusEl.textContent = res.error || 'Error'; statusEl.className = 'form-err'; return; }
+        await loadTimetable();
+        closeEditor();
+    } catch {
+        statusEl.textContent = 'Request failed';
+        statusEl.className = 'form-err';
+    }
+};
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+
 loadRules();
-load();
+loadForms();
+loadTimetable();
 </script>
 </body>
 </html>

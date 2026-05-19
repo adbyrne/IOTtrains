@@ -1,9 +1,11 @@
 """
 Timetable loader and query module for RR_Server.
-Loads timetable.json at startup; all functions are read-only during operations.
+Loads timetable.json at startup; supports hot-reload and atomic save via manage API.
 """
 
 import json
+import os
+import tempfile
 from pathlib import Path
 from typing import Optional
 
@@ -17,6 +19,40 @@ def load(path: str | Path) -> None:
     _data_path = Path(path)
     with open(_data_path) as f:
         _timetable = json.load(f)
+
+
+def reload() -> None:
+    """Re-read and re-parse the timetable file in place (hot-reload, no restart needed)."""
+    if _data_path is None:
+        raise RuntimeError("Timetable not loaded — call timetable.load() first")
+    load(_data_path)
+
+
+def save(data: dict) -> None:
+    """Atomically write `data` to the timetable file, then hot-reload.
+
+    Writes to a temp file in the same directory and renames to avoid partial writes.
+    """
+    if _data_path is None:
+        raise RuntimeError("Timetable not loaded — call timetable.load() first")
+    dir_ = _data_path.parent
+    fd, tmp = tempfile.mkstemp(dir=dir_, suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w") as f:
+            json.dump(data, f, indent=2)
+        os.replace(tmp, _data_path)
+    except Exception:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+    reload()
+
+
+def get() -> Optional[dict]:
+    """Return the raw timetable dict (read-only reference)."""
+    return _timetable
 
 
 def _require_loaded() -> None:
