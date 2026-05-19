@@ -1,7 +1,7 @@
 # NY&E Northern Lights Subdivision — Layout Control System Architecture
 
-**Version:** 1.1
-**Date:** 2026-05-05
+**Version:** 1.2
+**Date:** 2026-05-19
 **Era:** circa 1905 — timetable and train order operations
 
 ---
@@ -167,18 +167,18 @@ Full-screen browser on Display 1 (RPi5). Python FastAPI backend; browser communi
 ├──────┴──────┴──────┴──────┴──────┴──────┴──────────────────────┤
 │  OS LOG                           │  ISSUE TRAIN ORDER          │
 │  10:38  Extra 42N OS at XP        │  To: [XP▼] [BB▼] [ ]       │
-│  10:41  No. 3N OS at BB           │  ┌──────────────────────┐   │
-│  10:44  No. 3N OS at JC           │  │                      │   │
-│                                   │  │  (freeform order)    │   │
-│                                   │  │                      │   │
-│                                   │  └──────────────────────┘   │
-│                                   │  [ ISSUE TO ] [ CLEARANCE ] │
+│  10:41  No. 3N OS at BB           │  Type: [Meet         ▼]     │
+│  10:44  No. 3N OS at JC           │  Train A: [_3_] Eng: [101]  │
+│                                   │  Station: [BB▼]              │
+│                                   │  Train B: [42_] Dir: [N▼]   │
+│                                   │  Stn: [XP▼][BB▼][ ]         │
+│                                   │  [ ISSUE TO ] [ CLEARANCE ]  │
 └───────────────────────────────────┴────────────────────────────-┘
 ```
 
 - Station tiles show: N and S TO signal arm status (raised ◉ / lowered ◻), clearance pending indicator, online/offline.
 - Clicking a station tile opens a detail panel (last OS, active orders, signal direct control).
-- Train orders: structured templates — dispatcher selects TO type, system prompts for required fields, generates formatted text. TO types defined in the management function. Dispatcher reviews the completed form on screen and copies to their paper log before sending to selected stations.
+- Train orders: structured templates — dispatcher selects TO type, fills required fields, system generates formatted 1905-style text. TO types defined in `data/to_types.json`: `meet`, `wait`, `running_extra`, `work_extra`, `annulment`, `sections`. Addressed stations are manually selected by the dispatcher. Dispatcher reviews generated text on screen, copies to paper log, then issues.
 - Clearance forms: issued to any station; WP/XP/HC are standard clearance points, any station for originating trains.
 
 ---
@@ -187,7 +187,7 @@ Full-screen browser on Display 1 (RPi5). Python FastAPI backend; browser communi
 
 ### Train Orders
 - Structured templates: dispatcher selects a TO type, fills in required fields, system generates the formatted order text.
-- TO types (meet, wait, running extra authorization, work extra authorization, speed restriction, etc.) are defined in the management function — see management tools planning.
+- **TO types** defined in `data/to_types.json` (version 1.0): `meet`, `wait`, `running_extra`, `work_extra`, `annulment`, `sections`. Each type specifies its fields and text template. Addressed stations always manually selected by dispatcher.
 - Dispatcher reviews the completed form on screen, copies to their paper log, then issues to selected stations.
 - Each destination station receives the order text; station agent ACKs when copied.
 - TO signal arm raises automatically when order is issued; dispatcher lowers manually (prototypically authentic — signal stays up until dispatcher releases).

@@ -1,7 +1,7 @@
 # NY&E Layout Control System — Implementation Plan
 
-**Version:** 1.8
-**Date:** 2026-05-17
+**Version:** 1.9
+**Date:** 2026-05-19
 **Status:** Active
 
 ---
@@ -153,10 +153,10 @@ Scoping complete (2026-05-02). **Hardware needed before this session:** RPi3 + H
 - **Completion:** station agent submits OS; dispatcher sees it logged; next-station timetable shown on CYD
 
 ### Session 2.2 — Train Orders
-_Requires TO type definitions planning session before implementation — TO types, field schemas, and text templates must be defined first._
-- Dispatcher UI: structured TO form (type selector + required fields), multi-station selector, Issue button; TO signal arm auto-raises on issue
-- Station_OS: Orders screen (TO text display, N/S signal arm status, ACK button)
-- Full ACK flow back to Dispatcher UI
+_TO type definitions planning complete (2026-05-19) — `data/to_types.json` v1.0 defines all 6 types._
+- Dispatcher UI: structured TO form (type selector driven by `to_types.json`, field inputs per type, preview of generated text, multi-station selector, Issue button); TO signal arm raises on issue
+- Station_OS: Orders screen (TO text display, ACK button); TO stored on receipt, shown after OS submission if a matching TO is pending
+- Full ACK flow: station ACKs → dispatcher UI updates per-station ACK state; dispatcher manually lowers signal arm when all addressed stations have ACK'd
 - **Completion:** Dispatcher issues TOs; stations receive, display, and ACK
 
 ### Session 2.3 — Clearance Forms
@@ -184,10 +184,10 @@ _Scope defined; session number TBD. Design details required before implementatio
 
 These tools are needed before the first operating session. Initial sessions may use hand-edited JSON files where noted. **A dedicated planning session is required before any management tool implementation begins** — see Next Planning Session below.
 
-### TO Type Definitions _(prerequisite for dispatcher UI design)_
-- Define all TO types used on the NY&E (meet, wait, running extra, work extra, speed restriction, etc.)
-- For each type: required fields, formatted text template, addressed-station rules
-- Output: TO type registry used by the dispatcher UI structured form and by the management tools
+### TO Type Definitions ✅ COMPLETE (2026-05-19)
+- `data/to_types.json` v1.0: 6 types — `meet`, `wait`, `running_extra`, `work_extra`, `annulment`, `sections`
+- Each type: field schemas (id, label, type, required, help, conditional visibility), text template, template_vars rendering rules
+- Design decisions: addressed stations = dispatcher-selects; engine required except annulment (TT number sufficient); auto-select deferred to Phase 6 newbie mode
 
 ### C&O Timetable Data _(content task — no planning session required)_
 - Source: `NYELayoutDocs/alt/timetable.ods` Sheet2 — C&O East Central Subdivision schedule
@@ -312,3 +312,4 @@ Yardmaster-only data. Separate from `timetable.json`. Contains:
 | 1.8 | 2026-05-17 | Session 1.4 hardware tested (unit BB). Build lessons (User_Setup.h copy, direct flush callback, WiFi guard). Deferred items + CYD screen architecture question documented. Dispatcher clock interpolation noted. |
 | 1.9 | 2026-05-17 | Session 2.1 detailed plan complete (SESSION_2_1_PLAN.md). Screen state machine, keypad layout, next-station lookup, dispatcher OS log, MQTT spec updates defined. |
 | 2.0 | 2026-05-18 | Session 2.1 complete. Station_OS: screen state machine (CLOCK→OS_ENTRY→NEXT_STATION→CLOCK), 4×4 keypad, full schedule load, next-station lookup, OS publish. Dispatcher: trains/os/+ subscription, os_log AppState field, OS log panel (green flash on new entry), initial_state includes os_log. 31 tests, firmware builds clean (42.2% flash, 19.3% RAM). |
+| 2.1 | 2026-05-19 | TO type definitions planning complete. `data/to_types.json` v1.0 created with 6 types. Session 2.2 description updated. SYSTEM_ARCHITECTURE.md v1.2 and MQTT_SPEC.md v0.6 updated to reference to_types.json and remove stale freeform references. |
