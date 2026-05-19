@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>NY&amp;E — Management</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<header>
+    <h1>NY&amp;E Northern Lights</h1>
+    <span>Management</span>
+    <a href="/" class="header-nav">← Dispatcher</a>
+</header>
+
+<main>
+    <div class="manage-panel">
+        <div class="manage-panel-header">Layout Rules</div>
+        <div class="manage-panel-body">
+            <div class="form-row">
+                <label>Superior Direction</label>
+                <div class="radio-group" id="sup-dir-group">
+                    <label class="radio-item">
+                        <input type="radio" name="sup-dir" value="N"> Northward trains are superior by direction
+                    </label>
+                    <label class="radio-item">
+                        <input type="radio" name="sup-dir" value="S"> Southward trains are superior by direction
+                    </label>
+                </div>
+                <span class="hint">Sets which direction holds the main in a meet. Check the timetable note (e.g. "SOUTHWARD TRAINS ARE SUPERIOR BY DIRECTION").</span>
+            </div>
+            <div class="form-actions">
+                <button id="btn-save-rules" class="btn primary">Save</button>
+                <span id="rules-status"></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="manage-panel">
+        <div class="manage-panel-header">Active Train Order Forms</div>
+        <div class="manage-panel-body">
+            <p class="muted manage-desc">Select which form types appear in the dispatcher's Issue Train Order dialog.</p>
+            <div id="form-list" class="form-check-grid"></div>
+            <div class="form-actions">
+                <button id="btn-save" class="btn primary">Save</button>
+                <span id="save-status"></span>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script>
+'use strict';
+
+const ALL_FORMS = [
+    { letter: 'A', desc: 'Fixing Meeting Points for Opposing Trains' },
+    { letter: 'B', desc: 'Authorizing a Train to Pass or Run Ahead' },
+    { letter: 'C', desc: 'Giving Right Over Another Train' },
+    { letter: 'E', desc: 'Time Orders' },
+    { letter: 'F', desc: 'Creating Sections' },
+    { letter: 'G', desc: 'Authorizing Extra Trains' },
+    { letter: 'H', desc: 'Work Extras' },
+    { letter: 'J', desc: 'Holding Order' },
+    { letter: 'K', desc: 'Annulling a Schedule or a Section' },
+    { letter: 'L', desc: 'Annulling an Order' },
+    { letter: 'M', desc: 'Annulling Part of an Order' },
+    { letter: 'P', desc: 'Superseding an Order or Part of an Order' },
+    { letter: 'R', desc: 'Providing for a Movement Against the Current of Traffic' },
+    { letter: 'S', desc: 'Providing for Use of a Section of Double or More Tracks as Single Track' },
+    { letter: 'T', desc: 'Notice of New Timetable' },
+    { letter: 'U', desc: 'Advance Authority to Proceed from ABS Stop Signal' },
+    { letter: 'V', desc: 'Check of Trains' },
+    { letter: 'W', desc: 'Change in Clearance or Register Requirements' },
+    { letter: 'X', desc: 'Slow Track Conditions' },
+    { letter: 'Y', desc: 'Maintenance of Way Conditional Stop' },
+    { letter: 'Z', desc: 'Relief of Flag Protection' },
+];
+
+async function loadRules() {
+    const r = await fetch('/api/layout_rules');
+    const rules = await r.json();
+    const supDir = rules.superior_direction || 'S';
+    document.querySelector(`input[name="sup-dir"][value="${supDir}"]`).checked = true;
+}
+
+document.getElementById('btn-save-rules').onclick = async () => {
+    const sel = document.querySelector('input[name="sup-dir"]:checked');
+    const statusEl = document.getElementById('rules-status');
+    if (!sel) { statusEl.textContent = 'Select a direction'; statusEl.className = 'form-err'; return; }
+    try {
+        const r = await fetch('/api/layout_rules', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ superior_direction: sel.value }),
+        });
+        const body = await r.json();
+        if (!r.ok) { statusEl.textContent = body.error || 'Error'; statusEl.className = 'form-err'; return; }
+        statusEl.textContent = 'Saved — reload dispatcher to apply';
+        statusEl.className = 'form-ok';
+    } catch {
+        statusEl.textContent = 'Request failed';
+        statusEl.className = 'form-err';
+    }
+};
+
+async function load() {
+    const r = await fetch('/api/active_forms');
+    const { active_forms } = await r.json();
+    const active = new Set(active_forms);
+
+    const container = document.getElementById('form-list');
+    container.innerHTML = '';
+    for (const f of ALL_FORMS) {
+        const checked = active.has(f.letter);
+        const item = document.createElement('label');
+        item.className = 'form-check-item' + (checked ? ' checked' : '');
+        item.innerHTML =
+            `<input type="checkbox" value="${f.letter}"${checked ? ' checked' : ''}>` +
+            `<span class="form-check-letter">Form ${f.letter}</span>` +
+            `<span class="form-check-desc">${f.desc}</span>`;
+        item.querySelector('input').onchange = e =>
+            item.classList.toggle('checked', e.target.checked);
+        container.appendChild(item);
+    }
+}
+
+document.getElementById('btn-save').onclick = async () => {
+    const active_forms = [...document.querySelectorAll('#form-list input:checked')]
+                         .map(el => el.value);
+    const statusEl = document.getElementById('save-status');
+    try {
+        const r = await fetch('/api/active_forms', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ active_forms }),
+        });
+        const body = await r.json();
+        if (!r.ok) {
+            statusEl.textContent = body.error || 'Error';
+            statusEl.className = 'form-err';
+            return;
+        }
+        statusEl.textContent = 'Saved — reload dispatcher to apply';
+        statusEl.className = 'form-ok';
+    } catch {
+        statusEl.textContent = 'Request failed';
+        statusEl.className = 'form-err';
+    }
+};
+
+loadRules();
+load();
+</script>
+</body>
+</html>

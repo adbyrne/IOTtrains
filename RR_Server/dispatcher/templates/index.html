@@ -78,6 +78,13 @@
         </div>
     </div>
 
+    <!-- Train Order action bar -->
+    <div id="to-bar">
+        <button id="btn-to-issue" class="btn primary">Issue Train Order</button>
+        <button id="btn-to-log"   class="btn">TO Log</button>
+        <a href="/manage" class="manage-link">Manage</a>
+    </div>
+
     <!-- OS log panel -->
     <div id="os-panel">
         <div class="os-header">
@@ -91,6 +98,51 @@
     <div id="status-bar">Connecting…</div>
 
 </main>
+
+<!-- ── Issue Train Order modal ─────────────────────────────────────────── -->
+<div id="modal-to-issue" class="modal-overlay" hidden>
+    <div class="modal">
+        <div class="modal-header">
+            <span>Issue Train Order</span>
+            <button class="modal-close" id="btn-to-issue-close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-row">
+                <label for="to-form-select">Form</label>
+                <select id="to-form-select">
+                    <option value="" disabled selected>FORM ?</option>
+                </select>
+            </div>
+            <div class="form-row">
+                <label for="to-type-select">Order Type</label>
+                <select id="to-type-select"></select>
+            </div>
+            <div id="to-fields"></div>
+            <div class="form-row">
+                <label>Addressed To</label>
+                <div id="to-stations" class="station-checks"></div>
+            </div>
+            <div id="to-preview" class="to-preview"></div>
+            <div class="form-actions">
+                <button id="btn-to-submit" class="btn primary" disabled>Issue</button>
+                <span id="to-issue-err" class="form-err"></span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── TO Log modal ─────────────────────────────────────────────────────── -->
+<div id="modal-to-log" class="modal-overlay" hidden>
+    <div class="modal modal-wide">
+        <div class="modal-header">
+            <span>Train Orders Issued — This Session</span>
+            <button class="modal-close" id="btn-to-log-close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div id="to-log-list"><em class="muted">No orders issued yet.</em></div>
+        </div>
+    </div>
+</div>
 
 <script src="/static/dispatcher.js"></script>
 </body>

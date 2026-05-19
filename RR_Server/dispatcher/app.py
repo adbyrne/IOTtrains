@@ -3,21 +3,26 @@
 FastAPI application serving the dispatcher UI.
 
 Routes:
-  GET  /           — dispatcher page
+  GET  /                    — dispatcher page
   POST /api/clock/control   — clock commands (start/pause/reset/set/speed)
-  WS   /ws         — server-push events (clock_update, station_status, initial_state)
+  POST /api/to/issue        — issue a structured train order
+  POST /api/signal/arm      — raise or lower a TO signal arm
+  WS   /ws                  — server-push events (clock_update, station_status, initial_state,
+                              os_report, to_signal_update, to_issued, to_ack)
 """
 
 import asyncio
 import json
 import logging
+import secrets
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -36,13 +41,34 @@ logging.basicConfig(
 log = logging.getLogger(__name__)
 
 CONFIG_FILE = BASE_DIR / "config.json"
+TO_TYPES_FILE = BASE_DIR / "data" / "to_types.json"
+ACTIVE_FORMS_FILE  = BASE_DIR / "data" / "active_forms.json"
+LAYOUT_RULES_FILE  = BASE_DIR / "data" / "layout_rules.json"
 TEMPLATE_DIR = Path(__file__).parent / "templates"
 STATIC_DIR = Path(__file__).parent / "static"
 SUBDIVISION = "NLS"
-DISPATCHER_VERSION = "2.1"
+DISPATCHER_VERSION = "2.2"
+
+_ALL_FORM_LETTERS = set("ABCEFGHJKLMPRSTUVWXYZ")
+_basic_security = HTTPBasic()
 
 state = AppState()
 mqtt_client: MQTTClient | None = None
+to_types: dict = {}       # loaded from to_types.json at startup
+active_forms: list = []   # loaded from active_forms.json at startup
+layout_rules: dict = {}   # loaded from layout_rules.json at startup
+_owner_username: str = ""
+_owner_password: str = ""
+
+
+def _require_owner(credentials: HTTPBasicCredentials = Depends(_basic_security)) -> None:
+    ok_user = secrets.compare_digest(credentials.username.encode(), _owner_username.encode())
+    ok_pass = secrets.compare_digest(credentials.password.encode(), _owner_password.encode())
+    if not (ok_user and ok_pass):
+        raise HTTPException(
+            status_code=401,
+            headers={"WWW-Authenticate": 'Basic realm="NY&E Management"'},
+        )
 
 
 def build_next_trains(clock: dict) -> dict[str, dict]:
@@ -69,6 +95,10 @@ def build_initial_state() -> dict:
         "stations": state.stations,
         "to_signals": state.to_signals,
         "os_log": state.os_log,
+        "to_log": state.to_log,
+        "to_types": to_types,
+        "active_forms": active_forms,
+        "layout_rules": layout_rules,
         "next_trains": build_next_trains(state.clock),
         "station_ids": STATION_IDS,
         "station_names": STATION_NAMES,
@@ -76,20 +106,57 @@ def build_initial_state() -> dict:
     }
 
 
+def _derive_trains(to_type: str, fields: dict) -> list[str]:
+    """Compute the trains[] array from TO type and fields."""
+    if to_type == "meet":
+        return [str(fields["train_a"]), str(fields["train_b"])]
+    if to_type in ("wait", "annulment", "sections"):
+        return [str(fields["train"])]
+    if to_type in ("running_extra", "work_extra"):
+        return [str(fields["engine"])]
+    return []
+
+
+def _validate_to_fields(to_type: str, fields: dict) -> str | None:
+    """Return an error message if required fields are missing, else None."""
+    type_def = to_types.get("to_types", {}).get(to_type)
+    if type_def is None:
+        return f"unknown to_type: {to_type!r}"
+    for f in type_def.get("fields", []):
+        if f.get("required") and f["id"] not in fields:
+            return f"missing required field: {f['id']!r}"
+    return None
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global mqtt_client
+    global mqtt_client, to_types, active_forms, layout_rules, _owner_username, _owner_password
     try:
         config = json.loads(CONFIG_FILE.read_text())
     except (FileNotFoundError, json.JSONDecodeError) as e:
         log.error("Config error: %s", e)
         yield
         return
+    owner_cfg = config.get("owner", {})
+    _owner_username = owner_cfg.get("username", "owner")
+    _owner_password = owner_cfg.get("password", "")
 
     timetable.load(BASE_DIR / "data" / "timetable.json")
+    try:
+        to_types = json.loads(TO_TYPES_FILE.read_text())
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        log.error("to_types.json error: %s", e)
+    try:
+        active_forms = json.loads(ACTIVE_FORMS_FILE.read_text()).get("active_forms", [])
+    except (FileNotFoundError, json.JSONDecodeError):
+        active_forms = list("ABCEFGHJKL")
+    try:
+        layout_rules = json.loads(LAYOUT_RULES_FILE.read_text())
+    except (FileNotFoundError, json.JSONDecodeError):
+        layout_rules = {"superior_direction": "S"}
     mqtt_client = MQTTClient(config, state, build_next_trains)
     mqtt_client.start(asyncio.get_running_loop())
-    log.info("Dispatcher started")
+    log.info("Dispatcher started (v%s)", DISPATCHER_VERSION)
     yield
     if mqtt_client:
         mqtt_client.stop()
@@ -117,7 +184,10 @@ async def clock_control(request: Request):
         return JSONResponse({"error": "missing action"}, status_code=400)
 
     kwargs: dict[str, Any] = {}
-    if action == "set":
+    if action == "reset":
+        state.reset_seq()
+        state.current_day = 0
+    elif action == "set":
         for field in ("hour", "minute", "day"):
             if field in body:
                 kwargs[field] = body[field]
@@ -128,6 +198,120 @@ async def clock_control(request: Request):
 
     mqtt_client.publish_clock_control(action, **kwargs)
     return JSONResponse({"ok": True})
+
+
+@app.post("/api/to/issue")
+async def to_issue(request: Request):
+    if mqtt_client is None:
+        return JSONResponse({"error": "MQTT not connected"}, status_code=503)
+    body = await request.json()
+
+    to_type = body.get("to_type", "")
+    fields  = body.get("fields", {})
+    addressed_to = body.get("addressed_to", [])
+
+    err = _validate_to_fields(to_type, fields)
+    if err:
+        return JSONResponse({"error": err}, status_code=400)
+    if not addressed_to:
+        return JSONResponse({"error": "addressed_to must not be empty"}, status_code=400)
+    invalid_stations = [s for s in addressed_to if s not in STATION_IDS]
+    if invalid_stations:
+        return JSONResponse({"error": f"unknown station(s): {invalid_stations}"}, status_code=400)
+
+    clock = state.clock
+    seq = state.next_seq()
+    form = body.get("form") or to_types.get("default_form", "19")
+    trains = _derive_trains(to_type, fields)
+
+    payload = {
+        "seq":            seq,
+        "form":           form,
+        "to_type":        to_type,
+        "trains":         trains,
+        "addressed_to":   addressed_to,
+        "issued_rr_time": f"{clock.get('hour', 0):02d}:{clock.get('minute', 0):02d}",
+        "day":            clock.get("day", 1),
+        "fields":         fields,
+    }
+
+    for station_id in addressed_to:
+        mqtt_client.publish_to_order(station_id, payload)
+
+    for station_id in addressed_to:
+        if station_id in TO_SIGNAL_STATIONS:
+            mqtt_client.publish_signal_arm(station_id, "N", "raised")
+            mqtt_client.publish_signal_arm(station_id, "S", "raised")
+
+    to_entry = {k: v for k, v in payload.items()}
+    state.record_to(to_entry)
+
+    event = {"type": "to_issued", "to": to_entry}
+    await state.broadcast(event)
+
+    log.info("TO #%d issued: %s → %s", seq, to_type, addressed_to)
+    return JSONResponse({"ok": True, "seq": seq})
+
+
+@app.post("/api/signal/arm")
+async def signal_arm(request: Request):
+    if mqtt_client is None:
+        return JSONResponse({"error": "MQTT not connected"}, status_code=503)
+    body = await request.json()
+
+    station_id = body.get("station_id", "")
+    direction  = body.get("direction", "")
+    arm_state  = body.get("state", "")
+
+    if station_id not in TO_SIGNAL_STATIONS:
+        return JSONResponse({"error": f"{station_id!r} has no TO signal arm"}, status_code=400)
+    if direction not in ("N", "S"):
+        return JSONResponse({"error": "direction must be N or S"}, status_code=400)
+    if arm_state not in ("raised", "lowered"):
+        return JSONResponse({"error": "state must be raised or lowered"}, status_code=400)
+
+    mqtt_client.publish_signal_arm(station_id, direction, arm_state)
+    return JSONResponse({"ok": True})
+
+
+@app.get("/manage")
+async def manage_page(request: Request, _=Depends(_require_owner)):
+    return templates.TemplateResponse(request, "manage.html", {})
+
+
+@app.get("/api/active_forms")
+async def get_active_forms(_=Depends(_require_owner)):
+    return JSONResponse({"active_forms": active_forms})
+
+
+@app.post("/api/active_forms")
+async def post_active_forms(request: Request, _=Depends(_require_owner)):
+    global active_forms
+    body = await request.json()
+    forms = body.get("active_forms", [])
+    invalid = [f for f in forms if f not in _ALL_FORM_LETTERS]
+    if invalid:
+        return JSONResponse({"error": f"unknown form letters: {invalid}"}, status_code=400)
+    active_forms = forms
+    ACTIVE_FORMS_FILE.write_text(json.dumps({"active_forms": active_forms}, indent=2))
+    return JSONResponse({"ok": True, "active_forms": active_forms})
+
+
+@app.get("/api/layout_rules")
+async def get_layout_rules(_=Depends(_require_owner)):
+    return JSONResponse(layout_rules)
+
+
+@app.post("/api/layout_rules")
+async def post_layout_rules(request: Request, _=Depends(_require_owner)):
+    global layout_rules
+    body = await request.json()
+    sup_dir = body.get("superior_direction", "")
+    if sup_dir not in ("N", "S"):
+        return JSONResponse({"error": "superior_direction must be N or S"}, status_code=400)
+    layout_rules = {"superior_direction": sup_dir}
+    LAYOUT_RULES_FILE.write_text(json.dumps(layout_rules, indent=2))
+    return JSONResponse({"ok": True, "layout_rules": layout_rules})
 
 
 @app.websocket("/ws")

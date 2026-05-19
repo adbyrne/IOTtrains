@@ -1,11 +1,13 @@
 /* Station_OS — CYD Station Display
  * NY&E Northern Lights Subdivision
  *
- * Subscribe: trains/clock/time    (retained, QoS 0)
- *            trains/clock/control (QoS 1)
- * Publish:   trains/station/{id}/status  (retained, QoS 1, LWT, 60 s heartbeat)
- *            trains/clock/sync_request   (QoS 0, on reconnect)
- *            trains/os/{id}             (QoS 1, on OS submit)
+ * Subscribe: trains/clock/time        (retained, QoS 0)
+ *            trains/clock/control     (QoS 1)
+ *            trains/to/{station_id}   (QoS 2 — train orders from dispatcher)
+ * Publish:   trains/station/{id}/status      (retained, QoS 1, LWT, 60 s heartbeat)
+ *            trains/clock/sync_request       (QoS 0, on reconnect)
+ *            trains/os/{id}                  (QoS 1, on OS submit)
+ *            trains/to/{id}/ack              (QoS 1, on order ACK)
  *
  * Provisioning: connect via serial monitor (115200), type 'help'.
  * First boot (not provisioned) prints the prompt automatically.
@@ -41,7 +43,7 @@ extern "C" {
 #define DRAW_BUF_SIZE (SCREEN_WIDTH * SCREEN_HEIGHT / 10 * (LV_COLOR_DEPTH / 8))
 
 static const int  MQTT_PORT           = 1883;
-#define FIRMWARE_VER "1.1.0"
+#define FIRMWARE_VER "2.2.0"
 static const int  HEARTBEAT_SECS      = 60;
 static const int  DISPLAY_UPDATE_MS   = 1000;
 // Minutes before departure to consider a train "now" on display
@@ -109,11 +111,43 @@ static const std::vector<TrainEntry>* schedS = nullptr;
 static char stationName[48] = "---";
 static const std::vector<TrainEntry>  kEmptyVec;
 
+// ── Station name table (for TO text rendering) ────────────────────────────
+struct StationNameEntry { const char* id; const char* name; };
+static const StationNameEntry STATION_NAME_TABLE[] = {
+    {"WP", "Williamsport"},
+    {"XP", "Xina Pass"},
+    {"BB", "Becs Bend"},
+    {"JC", "Jacks Creek"},
+    {"MC", "Michelles Cove"},
+    {"SK", "Stans Knob"},
+    {"HC", "Hemlock Crest"},
+    {nullptr, nullptr}
+};
+
+static const char* stationNameForId(const char* id) {
+    for (int i = 0; STATION_NAME_TABLE[i].id; ++i)
+        if (strcmp(STATION_NAME_TABLE[i].id, id) == 0)
+            return STATION_NAME_TABLE[i].name;
+    return id;
+}
+
+// ── Pending Train Orders ──────────────────────────────────────────────────
+struct PendingTo {
+    int  seq;
+    char to_type[16];
+    char trains[64];      // comma-separated train/engine numbers for matching
+    char fields_json[400]; // fields object as JSON string
+};
+
+static std::vector<PendingTo>  pendingTos;
+static SemaphoreHandle_t       toMutex     = nullptr;
+static int                     currentToSeq = -1;  // seq of TO on ORDERS screen
+
 // ── Screen state machine ──────────────────────────────────────────────────
-enum class Screen { CLOCK, OS_ENTRY, NEXT_STATION };
+enum class Screen { CLOCK, OS_ENTRY, ORDERS, NEXT_STATION };
 static Screen      currentScreen = Screen::CLOCK;
 static lv_obj_t*   clockScr      = nullptr;  // permanent clock screen
-static lv_obj_t*   tempScr       = nullptr;  // OS or NS screen (deleted on transition)
+static lv_obj_t*   tempScr       = nullptr;  // OS / ORDERS / NS screen (deleted on transition)
 
 // OS entry state (reset on each entry)
 static char os_train[8]    = {};
@@ -200,10 +234,14 @@ static void enterOsEntry();
 static void updateOsDisplay();
 static lv_obj_t* buildOsScreen();
 static lv_obj_t* buildNextStationScreen(const char* train_num, const char* direction);
+static lv_obj_t* buildOrdersScreen(const PendingTo& to);
+static void checkAndShowNextTo();
+static void publishToAck(int seq);
 static void onClockTouch(lv_event_t* e);
 static void onOsBtnm(lv_event_t* e);
 static void onOsBtnmRelease(lv_event_t* e);
 static void onNsTouch(lv_event_t* e);
+static void onOrdersAck(lv_event_t* e);
 static void cbOsInact(lv_timer_t* t);
 static void cbNsTimeout(lv_timer_t* t);
 
@@ -622,16 +660,12 @@ static void onOsBtnm(lv_event_t* e) {
             if (osInactTimer) { lv_timer_delete(osInactTimer); osInactTimer = nullptr; }
             // Publish OS report
             publishOs();
-            // Build next-station screen and switch to it
-            char train[8], dir[4];
-            strlcpy(train, os_train, sizeof(train));
-            strlcpy(dir, os_dir, sizeof(dir));
+            // Check for a pending TO before proceeding to next-station screen
             lv_obj_t* oldScr = tempScr;
-            tempScr = buildNextStationScreen(train, dir);
-            lv_screen_load(tempScr);
+            tempScr = nullptr;
+            lv_screen_load(clockScr);   // briefly show clock while building next screen
             lv_obj_delete_async(oldScr);
-            currentScreen = Screen::NEXT_STATION;
-            nsTimeoutTimer = lv_timer_create(cbNsTimeout, NS_TIMEOUT_MS, nullptr);
+            checkAndShowNextTo();
         }
         return;
 
@@ -645,6 +679,212 @@ static void onOsBtnm(lv_event_t* e) {
     }
 
     updateOsDisplay();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Train Order rendering + ORDERS screen
+// ═══════════════════════════════════════════════════════════════════════════
+
+static void renderToText(const PendingTo& to, char* out, size_t n) {
+    JsonDocument doc;
+    deserializeJson(doc, to.fields_json);
+
+    auto sn = [&](const char* key) -> const char* {
+        const char* id = doc[key] | "";
+        return stationNameForId(id);
+    };
+    auto dw = [&](const char* key) -> const char* {
+        const char* d = doc[key] | "";
+        return (strcmp(d, "N") == 0) ? "North" : (strcmp(d, "S") == 0) ? "South" : d;
+    };
+
+    if (strcmp(to.to_type, "meet") == 0) {
+        bool bExtra = doc["train_b_is_extra"] | false;
+        char bRef[64];
+        if (bExtra)
+            snprintf(bRef, sizeof(bRef), "Extra %s %s",
+                     doc["train_b"] | "?", dw("direction_b"));
+        else
+            snprintf(bRef, sizeof(bRef), "No. %s Eng %s",
+                     doc["train_b"] | "?", doc["engine_b"] | "?");
+        snprintf(out, n,
+            "No. %s Eng %s take siding at %s and wait for %s %s.",
+            doc["train_a"] | "?", doc["engine_a"] | "?",
+            sn("station"), bRef, dw("direction_b"));
+
+    } else if (strcmp(to.to_type, "wait") == 0) {
+        snprintf(out, n,
+            "No. %s Eng %s take siding at %s and wait until %s.",
+            doc["train"] | "?", doc["engine"] | "?",
+            sn("station"), doc["until_time"] | "?");
+
+    } else if (strcmp(to.to_type, "running_extra") == 0) {
+        snprintf(out, n,
+            "Engine %s run extra %s %s to %s.",
+            doc["engine"] | "?", dw("direction"),
+            sn("from_station"), sn("to_station"));
+
+    } else if (strcmp(to.to_type, "work_extra") == 0) {
+        snprintf(out, n,
+            "Engine %s is authorized to work between %s and %s from %s to %s."
+            " All trains must be clear of this section during this time.",
+            doc["engine"] | "?",
+            sn("from_station"), sn("to_station"),
+            doc["start_rr_time"] | "?", doc["end_rr_time"] | "?");
+
+    } else if (strcmp(to.to_type, "annulment") == 0) {
+        const char* fromSta = doc["from_station"] | "";
+        const char* toSta   = doc["to_station"] | "";
+        if (fromSta[0] && toSta[0])
+            snprintf(out, n, "No. %s is annulled %s to %s.",
+                     doc["train"] | "?",
+                     stationNameForId(fromSta), stationNameForId(toSta));
+        else
+            snprintf(out, n, "No. %s is annulled.", doc["train"] | "?");
+
+    } else if (strcmp(to.to_type, "sections") == 0) {
+        snprintf(out, n,
+            "No. %s Eng %s will run in %d sections.",
+            doc["train"] | "?", doc["engine"] | "?",
+            doc["section_count"] | 2);
+
+    } else {
+        strlcpy(out, "(unknown order type)", n);
+    }
+}
+
+static void publishToAck(int seq) {
+    if (!mqttReady || cfg.sta_id[0] == '\0') return;
+    char topic[48];
+    snprintf(topic, sizeof(topic), "trains/to/%s/ack", cfg.sta_id);
+    // Get current RR time
+    char rrTime[12];
+    xSemaphoreTake(clkMutex, portMAX_DELAY);
+    int total = clk.base_hour * 60 + clk.base_min;
+    if (clk.synced && clk.running) {
+        unsigned long elapsed_ms = millis() - clk.tick_ms;
+        total += (int)((float)elapsed_ms / 1000.0f * clk.speed / 60.0f);
+    }
+    xSemaphoreGive(clkMutex);
+    total %= 1440;
+    snprintf(rrTime, sizeof(rrTime), "%02d:%02d", total / 60, total % 60);
+
+    char payload[128];
+    snprintf(payload, sizeof(payload),
+             "{\"seq\":%d,\"station_id\":\"%s\",\"rr_time\":\"%s\",\"copies\":2}",
+             seq, cfg.sta_id, rrTime);
+    mqttClient.publish(topic, 1, false, payload);
+    Serial.printf("TO #%d ACK published\n", seq);
+}
+
+static void onOrdersAck(lv_event_t* e) {
+    if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+
+    int seqToAck = currentToSeq;
+    publishToAck(seqToAck);
+
+    // Remove the ACK'd TO from the queue
+    xSemaphoreTake(toMutex, portMAX_DELAY);
+    for (auto it = pendingTos.begin(); it != pendingTos.end(); ++it) {
+        if (it->seq == seqToAck) {
+            pendingTos.erase(it);
+            break;
+        }
+    }
+    xSemaphoreGive(toMutex);
+
+    // Tear down current ORDERS screen before building next
+    lv_obj_t* oldScr = tempScr;
+    tempScr = nullptr;
+    lv_screen_load(clockScr);
+    lv_obj_delete_async(oldScr);
+    currentToSeq = -1;
+
+    // Show next pending TO for the same train, or advance to NEXT_STATION
+    checkAndShowNextTo();
+}
+
+static lv_obj_t* buildOrdersScreen(const PendingTo& to) {
+    char toText[480];
+    renderToText(to, toText, sizeof(toText));
+
+    lv_obj_t* scr = lv_obj_create(nullptr);
+    lv_obj_set_style_bg_color(scr, lv_color_black(), LV_PART_MAIN);
+    lv_obj_set_style_border_width(scr, 0, LV_PART_MAIN);
+    lv_obj_remove_flag(scr, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_pad_all(scr, 0, LV_PART_MAIN);
+
+    // Header: "Form 19  #seq"
+    char header[32];
+    snprintf(header, sizeof(header), "Form 19   #%d", to.seq);
+    lv_obj_t* lbl_hdr = lv_label_create(scr);
+    lv_label_set_text(lbl_hdr, header);
+    lv_obj_set_style_text_font(lbl_hdr, &lv_font_montserrat_14, LV_PART_MAIN);
+    lv_obj_set_style_text_color(lbl_hdr, lv_color_hex(0x888888), LV_PART_MAIN);
+    lv_obj_align(lbl_hdr, LV_ALIGN_TOP_LEFT, 10, 8);
+
+    // TO text — large, wrapped, yellow
+    lv_obj_t* lbl_text = lv_label_create(scr);
+    lv_label_set_long_mode(lbl_text, LV_LABEL_LONG_WRAP);
+    lv_obj_set_width(lbl_text, SCREEN_WIDTH - 20);
+    lv_label_set_text(lbl_text, toText);
+    lv_obj_set_style_text_font(lbl_text, &lv_font_montserrat_16, LV_PART_MAIN);
+    lv_obj_set_style_text_color(lbl_text, lv_color_hex(0xFFDD44), LV_PART_MAIN);
+    lv_obj_align(lbl_text, LV_ALIGN_TOP_LEFT, 10, 30);
+
+    // ACK button — full width at bottom, green
+    lv_obj_t* btn = lv_button_create(scr);
+    lv_obj_set_size(btn, SCREEN_WIDTH - 20, 44);
+    lv_obj_align(btn, LV_ALIGN_BOTTOM_MID, 0, -8);
+    lv_obj_set_style_bg_color(btn, lv_color_hex(0x1b4020), LV_PART_MAIN);
+    lv_obj_set_style_border_color(btn, lv_color_hex(0x2d6b35), LV_PART_MAIN);
+    lv_obj_set_style_border_width(btn, 1, LV_PART_MAIN);
+    lv_obj_t* lbl_ack = lv_label_create(btn);
+    lv_label_set_text(lbl_ack, "ACK — Order Received");
+    lv_obj_set_style_text_font(lbl_ack, &lv_font_montserrat_16, LV_PART_MAIN);
+    lv_obj_set_style_text_color(lbl_ack, lv_color_hex(0x7dcc85), LV_PART_MAIN);
+    lv_obj_center(lbl_ack);
+    lv_obj_add_event_cb(btn, onOrdersAck, LV_EVENT_CLICKED, nullptr);
+
+    return scr;
+}
+
+// Check pendingTos for a TO matching the current OS train; show ORDERS if found,
+// else advance to NEXT_STATION.  Called from OS submit and after each ACK.
+static void checkAndShowNextTo() {
+    xSemaphoreTake(toMutex, portMAX_DELAY);
+    PendingTo* match = nullptr;
+    for (auto& pt : pendingTos) {
+        // Check if os_train appears in the comma-separated trains[] string
+        char needle[12];
+        snprintf(needle, sizeof(needle), "%s", os_train);
+        // Simple search: match whole token
+        char haystack[64];
+        strlcpy(haystack, pt.trains, sizeof(haystack));
+        bool found = false;
+        char* tok = strtok(haystack, ",");
+        while (tok) {
+            if (strcmp(tok, needle) == 0) { found = true; break; }
+            tok = strtok(nullptr, ",");
+        }
+        if (found) { match = &pt; break; }
+    }
+
+    if (match) {
+        PendingTo matchCopy = *match;   // copy before releasing mutex
+        currentToSeq = matchCopy.seq;
+        xSemaphoreGive(toMutex);
+        tempScr = buildOrdersScreen(matchCopy);
+        lv_screen_load(tempScr);
+        currentScreen = Screen::ORDERS;
+    } else {
+        xSemaphoreGive(toMutex);
+        // No matching TO — go directly to next-station screen
+        tempScr = buildNextStationScreen(os_train, os_dir);
+        lv_screen_load(tempScr);
+        currentScreen = Screen::NEXT_STATION;
+        nsTimeoutTimer = lv_timer_create(cbNsTimeout, NS_TIMEOUT_MS, nullptr);
+    }
 }
 
 static lv_obj_t* buildOsScreen() {
@@ -990,6 +1230,13 @@ static void onMqttConnect(bool sessionPresent) {
     mqttClient.subscribe("trains/clock/time",    0);
     mqttClient.subscribe("trains/clock/control", 1);
 
+    // Subscribe to train orders addressed to this station
+    if (cfg.sta_id[0] != '\0') {
+        char toTopic[48];
+        snprintf(toTopic, sizeof(toTopic), "trains/to/%s", cfg.sta_id);
+        mqttClient.subscribe(toTopic, 2);
+    }
+
     // Publish online status with LWT already set; request clock sync
     publishStatus();
     needSyncRequest = true;
@@ -1009,10 +1256,44 @@ static void onMqttMessage(char* topic, char* payload,
                           AsyncMqttClientMessageProperties props,
                           size_t len, size_t index, size_t total) {
     // Null-terminate (payload buffer is not guaranteed null-terminated)
-    char buf[256];
+    char buf[512];
     size_t copy = min(len, sizeof(buf) - 1);
     memcpy(buf, payload, copy);
     buf[copy] = '\0';
+
+    // ── Train Order ───────────────────────────────────────────────────────
+    // Topic: trains/to/{station_id}
+    if (cfg.sta_id[0] != '\0') {
+        char toTopic[48];
+        snprintf(toTopic, sizeof(toTopic), "trains/to/%s", cfg.sta_id);
+        if (strcmp(topic, toTopic) == 0) {
+            JsonDocument doc;
+            if (deserializeJson(doc, buf)) return;
+
+            PendingTo pt;
+            pt.seq = doc["seq"] | 0;
+            strlcpy(pt.to_type, doc["to_type"] | "", sizeof(pt.to_type));
+
+            // Build comma-separated trains[] string for matching
+            pt.trains[0] = '\0';
+            JsonArray trains = doc["trains"].as<JsonArray>();
+            for (JsonVariant v : trains) {
+                if (pt.trains[0]) strlcat(pt.trains, ",", sizeof(pt.trains));
+                strlcat(pt.trains, v.as<const char*>(), sizeof(pt.trains));
+            }
+
+            // Serialise fields object back to string for later rendering
+            serializeJson(doc["fields"], pt.fields_json, sizeof(pt.fields_json));
+
+            xSemaphoreTake(toMutex, portMAX_DELAY);
+            pendingTos.push_back(pt);
+            xSemaphoreGive(toMutex);
+
+            Serial.printf("TO #%d (%s) received; trains=[%s]\n",
+                          pt.seq, pt.to_type, pt.trains);
+            return;
+        }
+    }
 
     JsonDocument doc;
     if (deserializeJson(doc, buf)) return;
@@ -1185,6 +1466,7 @@ void setup() {
 
     // ── Synchronization primitives ────────────────────────────────────────
     clkMutex = xSemaphoreCreateMutex();
+    toMutex  = xSemaphoreCreateMutex();
 
     // ── MQTT / WiFi ───────────────────────────────────────────────────────
     if (provisioned) {

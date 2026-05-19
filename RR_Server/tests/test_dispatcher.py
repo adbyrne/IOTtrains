@@ -1,4 +1,4 @@
-"""Unit tests for dispatcher/ (Session 1.3).
+"""Unit tests for dispatcher/ (Sessions 1.3 + 2.2).
 
 Covers pure logic and HTTP/WebSocket routes — no MQTT broker required.
 The MQTTClient is patched so tests run standalone.
@@ -310,3 +310,247 @@ class TestOsReport:
                     data = ws.receive_json()
                     assert data["type"] == "initial_state"
                     assert any(e["train"] == "3" for e in data["os_log"])
+
+
+# ── TO issue endpoint ─────────────────────────────────────────────────────────
+
+MEET_FIELDS = {
+    "train_a": "3",
+    "engine_a": "101",
+    "train_b_is_extra": True,
+    "train_b": "42",
+    "direction_b": "N",
+    "station": "BB",
+}
+
+WAIT_FIELDS = {
+    "train": "5",
+    "engine": "202",
+    "station": "XP",
+    "until_time": "11:30",
+}
+
+RUNNING_EXTRA_FIELDS = {
+    "engine": "99",
+    "direction": "N",
+    "from_station": "WP",
+    "to_station": "HC",
+    "departure_rr_time": "06:00",
+}
+
+WORK_EXTRA_FIELDS = {
+    "engine": "55",
+    "from_station": "BB",
+    "to_station": "JC",
+    "start_rr_time": "10:00",
+    "end_rr_time": "12:30",
+}
+
+ANNULMENT_FIELDS = {"train": "141"}
+
+SECTIONS_FIELDS = {"train": "3", "engine": "101", "section_count": 2}
+
+
+class TestToIssue:
+    def test_valid_meet_returns_200_and_seq(self, client):
+        r = client.post("/api/to/issue", json={
+            "to_type": "meet",
+            "fields": MEET_FIELDS,
+            "addressed_to": ["BB", "XP"],
+        })
+        assert r.status_code == 200
+        body = r.json()
+        assert body["ok"] is True
+        assert isinstance(body["seq"], int)
+
+    def test_seq_increments_across_orders(self, client):
+        r1 = client.post("/api/to/issue", json={
+            "to_type": "wait", "fields": WAIT_FIELDS, "addressed_to": ["XP"],
+        })
+        r2 = client.post("/api/to/issue", json={
+            "to_type": "wait", "fields": WAIT_FIELDS, "addressed_to": ["BB"],
+        })
+        assert r2.json()["seq"] == r1.json()["seq"] + 1
+
+    def test_missing_to_type_is_400(self, client):
+        r = client.post("/api/to/issue", json={
+            "fields": MEET_FIELDS, "addressed_to": ["BB"],
+        })
+        assert r.status_code == 400
+
+    def test_invalid_to_type_is_400(self, client):
+        r = client.post("/api/to/issue", json={
+            "to_type": "bogus", "fields": {}, "addressed_to": ["BB"],
+        })
+        assert r.status_code == 400
+
+    def test_empty_addressed_to_is_400(self, client):
+        r = client.post("/api/to/issue", json={
+            "to_type": "wait", "fields": WAIT_FIELDS, "addressed_to": [],
+        })
+        assert r.status_code == 400
+
+    def test_invalid_station_id_is_400(self, client):
+        r = client.post("/api/to/issue", json={
+            "to_type": "wait", "fields": WAIT_FIELDS, "addressed_to": ["ZZ"],
+        })
+        assert r.status_code == 400
+
+    def test_missing_required_field_is_400(self, client):
+        r = client.post("/api/to/issue", json={
+            "to_type": "meet",
+            "fields": {"train_a": "3"},   # engine_a, train_b, etc. missing
+            "addressed_to": ["BB"],
+        })
+        assert r.status_code == 400
+
+    def test_trains_array_meet(self, client):
+        r = client.post("/api/to/issue", json={
+            "to_type": "meet", "fields": MEET_FIELDS, "addressed_to": ["BB"],
+        })
+        assert r.status_code == 200
+        from dispatcher.app import state as app_state
+        entry = next(e for e in app_state.to_log if e["to_type"] == "meet"
+                     and "3" in e["trains"] and "42" in e["trains"])
+        assert set(entry["trains"]) == {"3", "42"}
+
+    def test_trains_array_wait(self, client):
+        r = client.post("/api/to/issue", json={
+            "to_type": "wait", "fields": WAIT_FIELDS, "addressed_to": ["XP"],
+        })
+        assert r.status_code == 200
+        from dispatcher.app import state as app_state
+        entry = next(e for e in app_state.to_log
+                     if e["to_type"] == "wait" and "5" in e["trains"])
+        assert entry["trains"] == ["5"]
+
+    def test_trains_array_running_extra(self, client):
+        r = client.post("/api/to/issue", json={
+            "to_type": "running_extra", "fields": RUNNING_EXTRA_FIELDS,
+            "addressed_to": ["WP"],
+        })
+        assert r.status_code == 200
+        from dispatcher.app import state as app_state
+        entry = next(e for e in app_state.to_log
+                     if e["to_type"] == "running_extra")
+        assert entry["trains"] == ["99"]
+
+    def test_to_stored_in_state(self, client):
+        before = len([e for e in __import__("dispatcher.app", fromlist=["state"]).state.to_log])
+        client.post("/api/to/issue", json={
+            "to_type": "annulment", "fields": ANNULMENT_FIELDS, "addressed_to": ["HC"],
+        })
+        from dispatcher.app import state as app_state
+        assert len(app_state.to_log) > before
+
+    def test_to_entry_has_ack_dict(self, client):
+        client.post("/api/to/issue", json={
+            "to_type": "sections", "fields": SECTIONS_FIELDS,
+            "addressed_to": ["WP", "XP"],
+        })
+        from dispatcher.app import state as app_state
+        entry = next(e for e in app_state.to_log if e["to_type"] == "sections")
+        assert "WP" in entry["acks"]
+        assert "XP" in entry["acks"]
+        assert entry["acks"]["WP"] is None
+        assert entry["acks"]["XP"] is None
+
+    def test_initial_state_includes_to_log_and_types(self, client):
+        with client.websocket_connect("/ws") as ws:
+            data = ws.receive_json()
+        assert "to_log" in data
+        assert "to_types" in data
+        assert isinstance(data["to_log"], list)
+        assert isinstance(data["to_types"], dict)
+
+
+# ── Signal arm endpoint ───────────────────────────────────────────────────────
+
+class TestSignalArm:
+    def test_raise_valid_station_returns_200(self, client):
+        r = client.post("/api/signal/arm", json={
+            "station_id": "BB", "direction": "N", "state": "raised",
+        })
+        assert r.status_code == 200
+        assert r.json()["ok"] is True
+
+    def test_lower_valid_station_returns_200(self, client):
+        r = client.post("/api/signal/arm", json={
+            "station_id": "XP", "direction": "S", "state": "lowered",
+        })
+        assert r.status_code == 200
+
+    def test_non_signal_station_is_400(self, client):
+        r = client.post("/api/signal/arm", json={
+            "station_id": "WP", "direction": "N", "state": "raised",
+        })
+        assert r.status_code == 400
+
+    def test_invalid_direction_is_400(self, client):
+        r = client.post("/api/signal/arm", json={
+            "station_id": "BB", "direction": "E", "state": "raised",
+        })
+        assert r.status_code == 400
+
+    def test_invalid_state_is_400(self, client):
+        r = client.post("/api/signal/arm", json={
+            "station_id": "BB", "direction": "N", "state": "halfway",
+        })
+        assert r.status_code == 400
+
+
+# ── ACK handling ──────────────────────────────────────────────────────────────
+
+def _inject_to_ack(mqtt_obj, seq: int, station_id: str, rr_time: str = "10:33") -> None:
+    import json
+    msg = MagicMock()
+    msg.topic = f"trains/to/{station_id}/ack"
+    msg.payload = json.dumps({"seq": seq, "station_id": station_id,
+                               "rr_time": rr_time, "copies": 2}).encode()
+    mqtt_obj._on_message(None, None, msg)
+
+
+class TestToAck:
+    def test_ack_updates_state(self):
+        from dispatcher.session import AppState
+        state = AppState()
+        state.record_to({
+            "seq": 1, "to_type": "wait", "trains": ["5"],
+            "addressed_to": ["XP"], "fields": {},
+        })
+        mc = _make_real_mqtt_client(state)
+        _inject_to_ack(mc, seq=1, station_id="XP")
+        assert state.to_log[0]["acks"]["XP"] is not None
+        assert state.to_log[0]["acks"]["XP"]["rr_time"] == "10:33"
+
+    def test_ack_unknown_seq_is_ignored(self):
+        from dispatcher.session import AppState
+        state = AppState()
+        mc = _make_real_mqtt_client(state)
+        # Should not raise even with no matching TO
+        _inject_to_ack(mc, seq=999, station_id="BB")
+
+    def test_all_acked_flag_set_when_complete(self):
+        from dispatcher.session import AppState
+        state = AppState()
+        state.record_to({
+            "seq": 2, "to_type": "wait", "trains": ["5"],
+            "addressed_to": ["BB", "XP"], "fields": {},
+        })
+        mc = _make_real_mqtt_client(state)
+        _inject_to_ack(mc, seq=2, station_id="BB")
+        _inject_to_ack(mc, seq=2, station_id="XP")
+        assert all(v is not None for v in state.to_log[0]["acks"].values())
+
+    def test_partial_ack_does_not_set_all_acked(self):
+        from dispatcher.session import AppState
+        state = AppState()
+        state.record_to({
+            "seq": 3, "to_type": "meet", "trains": ["3", "42"],
+            "addressed_to": ["BB", "XP", "JC"], "fields": {},
+        })
+        mc = _make_real_mqtt_client(state)
+        _inject_to_ack(mc, seq=3, station_id="BB")
+        assert state.to_log[0]["acks"]["BB"] is not None
+        assert state.to_log[0]["acks"]["XP"] is None
+        assert state.to_log[0]["acks"]["JC"] is None

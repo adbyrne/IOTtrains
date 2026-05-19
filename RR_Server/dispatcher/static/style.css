@@ -189,9 +189,6 @@ main { padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; }
     font-size: 0.85rem;
     font-weight: 700;
 }
-.to-raised  { color: #e03030; }   /* arm up — stop for orders */
-.to-lowered { color: #4caf50; }   /* arm down — clear */
-.to-none    { color: #555; }
 
 /* ── OS log panel ────────────────────────────────────────────────── */
 #os-panel {
@@ -238,6 +235,289 @@ main { padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; }
     100% { background: transparent; }
 }
 .os-flash { animation: os-flash-anim 1.2s ease-out forwards; }
+
+/* ── TO action bar ───────────────────────────────────────────────── */
+#to-bar {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+/* ── Signal arm buttons (inside station table) ───────────────────── */
+.arm-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    transition: background 0.1s;
+    line-height: 1;
+}
+.arm-btn:hover { background: #333; }
+.arm-btn.raised  { color: #e03030; }
+.arm-btn.lowered { color: #4caf50; }
+.arm-btn.none    { color: #555; }
+
+/* ── Modal overlay ───────────────────────────────────────────────── */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.72);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+}
+.modal-overlay[hidden] { display: none; }
+
+.modal {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    width: min(540px, 94vw);
+    max-height: 88vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.modal-wide { width: min(760px, 94vw); }
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px 12px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
+    font-size: 0.95rem;
+    flex-shrink: 0;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 1.3rem;
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1;
+}
+.modal-close:hover { color: var(--text); }
+
+.modal-body {
+    padding: 16px 18px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* ── TO form ─────────────────────────────────────────────────────── */
+.form-row {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+.form-row label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+.form-row input,
+.form-row select,
+.form-row textarea {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 6px 9px;
+    font-size: 0.88rem;
+    font-family: inherit;
+}
+.form-row input:focus,
+.form-row select:focus { outline: 1px solid var(--accent); }
+
+.form-row .hint {
+    font-size: 0.75rem;
+    color: var(--muted);
+}
+
+.form-bool {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+}
+.form-bool input[type=checkbox] { width: 16px; height: 16px; cursor: pointer; }
+.form-bool label { font-size: 0.88rem; color: var(--text); text-transform: none;
+                   letter-spacing: 0; font-weight: normal; }
+
+.station-checks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.station-check-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 5px 10px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-family: monospace;
+    user-select: none;
+}
+.station-check-item input { cursor: pointer; }
+.station-check-item.checked { border-color: var(--accent); color: var(--accent); }
+
+.to-preview {
+    background: #111;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 10px 14px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: #ccc;
+    min-height: 44px;
+    white-space: pre-wrap;
+}
+.to-preview:empty::before { content: 'Fill in fields to preview order text…'; color: #555; font-style: italic; }
+
+.form-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-top: 4px;
+}
+.form-err { font-size: 0.8rem; color: var(--danger); }
+.form-ok  { font-size: 0.8rem; color: var(--online); }
+
+/* ── Superiority indicator ───────────────────────────────────────── */
+.superiority-note {
+    font-size: 0.82rem;
+    padding: 8px 12px;
+    border-radius: 4px;
+    border: 1px solid transparent;
+    line-height: 1.4;
+}
+.superiority-note.ok        { background: #1b4020; border-color: #2d6b35; color: #7dcc85; }
+.superiority-note.warn      { background: #3d1a10; border-color: #7a3318; color: #e07055; }
+.superiority-note.hint-note { color: var(--muted); border-color: var(--border); }
+
+/* ── Management page ─────────────────────────────────────────────── */
+.header-nav {
+    margin-left: auto;
+    font-size: 0.8rem;
+    color: var(--muted);
+    text-decoration: none;
+}
+.header-nav:hover { color: var(--text); }
+
+.manage-link {
+    margin-left: auto;
+    font-size: 0.8rem;
+    color: var(--muted);
+    text-decoration: none;
+    padding: 6px 0;
+}
+.manage-link:hover { color: var(--text); }
+
+.manage-panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+}
+.manage-panel-header {
+    padding: 12px 18px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    border-bottom: 1px solid var(--border);
+    background: #1e1e1e;
+}
+.manage-panel-body {
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+.manage-desc { font-size: 0.85rem; }
+
+.form-check-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 8px;
+}
+.form-check-item {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 7px 12px;
+    cursor: pointer;
+    user-select: none;
+}
+.form-check-item input { cursor: pointer; flex-shrink: 0; }
+.form-check-item.checked { border-color: var(--accent); }
+.form-check-letter {
+    font-family: monospace;
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: var(--accent);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.form-check-item:not(.checked) .form-check-letter { color: var(--muted); }
+.form-check-desc { font-size: 0.82rem; color: var(--muted); }
+
+.radio-group { display: flex; flex-direction: column; gap: 8px; padding: 2px 0; }
+.radio-item  { display: flex; align-items: center; gap: 8px; font-size: 0.88rem; cursor: pointer; }
+.radio-item input { cursor: pointer; }
+
+/* ── TO log ──────────────────────────────────────────────────────── */
+.to-log-entry {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 10px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.to-log-header {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    font-size: 0.8rem;
+    color: var(--muted);
+}
+.to-log-seq    { font-weight: 700; font-family: monospace; color: var(--accent); }
+.to-log-type   { font-weight: 600; color: var(--text); }
+.to-log-time   { margin-left: auto; }
+.to-log-text   { font-family: 'Courier New', monospace; font-size: 0.88rem; color: #ccc;
+                 line-height: 1.45; white-space: pre-wrap; }
+.to-log-acks   { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.ack-badge {
+    font-family: monospace;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 3px;
+    border: 1px solid transparent;
+}
+.ack-badge.pending  { border-color: #555; color: var(--muted); }
+.ack-badge.received { border-color: #2d6b35; background: #1b4020; color: #7dcc85; }
 
 /* ── Connection status bar ───────────────────────────────────────── */
 #status-bar {

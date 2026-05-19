@@ -1,6 +1,6 @@
 # NY&E Layout Control System — Implementation Plan
 
-**Version:** 1.9
+**Version:** 2.2
 **Date:** 2026-05-19
 **Status:** Active
 
@@ -156,10 +156,29 @@ Scoping complete (2026-05-02). **Hardware needed before this session:** RPi3 + H
 
 ### Session 2.2 — Train Orders
 _TO type definitions planning complete (2026-05-19) — `data/to_types.json` v1.0 defines all 6 types._
-- Dispatcher UI: structured TO form (type selector driven by `to_types.json`, field inputs per type, preview of generated text, multi-station selector, Issue button); TO signal arm raises on issue
-- Station_OS: Orders screen (TO text display, ACK button); TO stored on receipt, shown after OS submission if a matching TO is pending
-- Full ACK flow: station ACKs → dispatcher UI updates per-station ACK state; dispatcher manually lowers signal arm when all addressed stations have ACK'd
-- **Completion:** Dispatcher issues TOs; stations receive, display, and ACK
+
+**Workflow:** Dispatcher raises TO signal arms first (stops trains), then issues the structured TO form. Arms are independent of TO issuance — dispatcher lowers them manually after all stations ACK.
+
+**Design decisions:**
+- Payload: structured `fields` object, no pre-rendered `text` — each receiver (dispatcher JS, CYD firmware) renders text from templates
+- Signal arms: dispatcher raises/lowers via clickable arm controls in station table; `POST /api/signal/arm` endpoint; NOT tied to TO issuance
+- Multiple TOs for same train: firmware queues them; next TO auto-shown after ACK (ORDERS screen has no timeout)
+- Form 19 description corrected (hoop-up order); form 31 = stop-and-sign/clearance (NY&E does not use)
+- `running_extra` schedule publish (trains/extra/{engine}/schedule) deferred until segment data available
+
+**Dispatcher UI:**
+- Clickable TO signal arm toggles in station table (raise/lower per direction)
+- "Issue Train Order" button → modal with type selector, dynamic fields, text preview, addressed-to checkboxes
+- "TO Log" button → separate modal showing all issued TOs with per-station ACK badges
+
+**Station_OS firmware:**
+- Subscribe to `trains/to/{station_id}` (QoS 2)
+- PendingTo queue per station; match by train number from `trains[]` array
+- New `Screen::ORDERS`: TO text (rendered from embedded templates) + ACK button, no timeout
+- State machine: CLOCK → OS_ENTRY → [ORDERS if pending TO] → NEXT_STATION → CLOCK
+- After ACK: check queue for next pending TO for same train before advancing
+
+**Completion:** Dispatcher raises arms, issues TOs; stations receive, display, and ACK; dispatcher sees per-station ACK state and lowers arms
 
 ### Session 2.3 — Clearance Forms
 - Dispatcher UI: clearance issuance (train, direction, text, destination station)
@@ -315,3 +334,4 @@ Yardmaster-only data. Separate from `timetable.json`. Contains:
 | 1.9 | 2026-05-17 | Session 2.1 detailed plan complete (SESSION_2_1_PLAN.md). Screen state machine, keypad layout, next-station lookup, dispatcher OS log, MQTT spec updates defined. |
 | 2.0 | 2026-05-18 | Session 2.1 complete. Station_OS: screen state machine (CLOCK→OS_ENTRY→NEXT_STATION→CLOCK), 4×4 keypad, full schedule load, next-station lookup, OS publish. Dispatcher: trains/os/+ subscription, os_log AppState field, OS log panel (green flash on new entry), initial_state includes os_log. 31 tests, firmware builds clean (42.2% flash, 19.3% RAM). |
 | 2.1 | 2026-05-19 | TO type definitions planning complete. `data/to_types.json` v1.0 created with 6 types. Session 2.2 description updated. SYSTEM_ARCHITECTURE.md v1.2 and MQTT_SPEC.md v0.6 updated to reference to_types.json and remove stale freeform references. |
+| 2.2 | 2026-05-19 | Session 2.2 implementation plan finalised. Design decisions: structured payload (no pre-rendered text), dispatcher-manual signal arm control, TO queue with auto-show-next, form 19/31 descriptions corrected. MQTT_SPEC.md v0.7. |

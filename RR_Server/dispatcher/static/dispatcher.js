@@ -1,10 +1,41 @@
 'use strict';
 
 const DAYS = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const DIR_WORD = { N: 'North', S: 'South' };
+
+const ALL_FORMS = [
+    { letter: 'A', desc: 'Fixing Meeting Points for Opposing Trains' },
+    { letter: 'B', desc: 'Authorizing a Train to Pass or Run Ahead' },
+    { letter: 'C', desc: 'Giving Right Over Another Train' },
+    { letter: 'E', desc: 'Time Orders' },
+    { letter: 'F', desc: 'Creating Sections' },
+    { letter: 'G', desc: 'Authorizing Extra Trains' },
+    { letter: 'H', desc: 'Work Extras' },
+    { letter: 'J', desc: 'Holding Order' },
+    { letter: 'K', desc: 'Annulling a Schedule or a Section' },
+    { letter: 'L', desc: 'Annulling an Order' },
+    { letter: 'M', desc: 'Annulling Part of an Order' },
+    { letter: 'P', desc: 'Superseding an Order or Part of an Order' },
+    { letter: 'R', desc: 'Providing for a Movement Against the Current of Traffic' },
+    { letter: 'S', desc: 'Providing for Use of a Section of Double or More Tracks as Single Track' },
+    { letter: 'T', desc: 'Notice of New Timetable' },
+    { letter: 'U', desc: 'Advance Authority to Proceed from ABS Stop Signal' },
+    { letter: 'V', desc: 'Check of Trains' },
+    { letter: 'W', desc: 'Change in Clearance or Register Requirements' },
+    { letter: 'X', desc: 'Slow Track Conditions' },
+    { letter: 'Y', desc: 'Maintenance of Way Conditional Stop' },
+    { letter: 'Z', desc: 'Relief of Flag Protection' },
+];
 
 let ws = null;
 let reconnectTimer = null;
 let toSignalStations = new Set();
+let stationIds = [];
+let stationNames = {};
+let toTypes = {};       // to_types.json content from server
+let activeForms = [];   // active form letters from server
+let layoutRules = {};   // layout operating rules from server
+let toLogData = [];     // local mirror of issued TOs (newest first)
 
 // ── WebSocket ────────────────────────────────────────────────────────────────
 
@@ -27,6 +58,8 @@ function connect() {
             case 'station_status':   handleStationStatus(event);   break;
             case 'to_signal_update': handleToSignalUpdate(event);  break;
             case 'os_report':        handleOsReport(event);        break;
+            case 'to_issued':        handleToIssued(event);        break;
+            case 'to_ack':           handleToAck(event);           break;
         }
     };
 
@@ -35,27 +68,32 @@ function connect() {
         reconnectTimer = setTimeout(connect, 3000);
     };
 
-    ws.onerror = () => {
-        ws.close();
-    };
+    ws.onerror = () => { ws.close(); };
 }
 
 // ── Event handlers ───────────────────────────────────────────────────────────
 
 function handleInitialState(event) {
+    stationIds  = event.station_ids  || [];
+    stationNames = event.station_names || {};
     toSignalStations = new Set(event.to_signal_stations || []);
-    buildStationGrid(event.station_ids, event.station_names);
+    toTypes     = event.to_types     || {};
+    activeForms = event.active_forms  || [];
+    layoutRules = event.layout_rules  || {};
+    toLogData   = event.to_log       || [];
+
+    buildStationGrid(stationIds, stationNames);
     updateClock(event.clock);
     updateAllNextTrains(event.next_trains);
-    for (const [sid, status] of Object.entries(event.stations || {})) {
+    for (const [sid, status] of Object.entries(event.stations || {}))
         updateStationStatus(sid, status);
-    }
-    for (const [sid, arms] of Object.entries(event.to_signals || {})) {
-        for (const [dir, sigState] of Object.entries(arms)) {
+    for (const [sid, arms] of Object.entries(event.to_signals || {}))
+        for (const [dir, sigState] of Object.entries(arms))
             updateToSignal(sid, dir, sigState);
-        }
-    }
     rebuildOsLog(event.os_log || []);
+    populateToTypeSelect();
+    populateToStationChecks();
+    populateFormSelect();
 }
 
 function handleClockUpdate(event) {
@@ -69,6 +107,17 @@ function handleStationStatus(event) {
 
 function handleToSignalUpdate(event) {
     updateToSignal(event.station_id, event.direction, event.state);
+}
+
+function handleToIssued(event) {
+    toLogData.unshift(event.to);
+    refreshToLogModal();
+}
+
+function handleToAck(event) {
+    const entry = toLogData.find(e => e.seq === event.seq);
+    if (entry) entry.acks[event.station_id] = event.ack;
+    refreshToLogModal();
 }
 
 // ── Clock display ────────────────────────────────────────────────────────────
@@ -95,10 +144,10 @@ function setBadge(state) {
 
 // ── Station table ─────────────────────────────────────────────────────────────
 
-function buildStationGrid(stationIds, stationNames) {
+function buildStationGrid(ids, names) {
     const table = document.getElementById('station-table');
-    if (table.querySelectorAll('.station-row').length > 0) return; // already built
-    for (const sid of stationIds) {
+    if (table.querySelectorAll('.station-row').length > 0) return;
+    for (const sid of ids) {
         const hasTo = toSignalStations.has(sid);
         const row = document.createElement('div');
         row.className = 'station-row';
@@ -106,25 +155,40 @@ function buildStationGrid(stationIds, stationNames) {
         row.innerHTML = `
             <span class="status-dot" id="dot-${sid}"></span>
             <span class="col-id">${sid}</span>
-            <span class="col-name">${stationNames[sid] || sid}</span>
-            <span class="col-to" id="to-${sid}-N">${hasTo ? toHtml(null) : ''}</span>
+            <span class="col-name">${names[sid] || sid}</span>
+            <span class="col-to" id="to-${sid}-N">${hasTo ? armHtml(sid, 'N', 'raised') : ''}</span>
             <span class="col-train" id="nt-${sid}-N"></span>
-            <span class="col-to" id="to-${sid}-S">${hasTo ? toHtml(null) : ''}</span>
+            <span class="col-to" id="to-${sid}-S">${hasTo ? armHtml(sid, 'S', 'raised') : ''}</span>
             <span class="col-train" id="nt-${sid}-S"></span>`;
         table.appendChild(row);
     }
+    // Bind arm button clicks (event delegation on the table)
+    table.addEventListener('click', e => {
+        const btn = e.target.closest('.arm-btn');
+        if (!btn) return;
+        const sid = btn.dataset.sid;
+        const dir = btn.dataset.dir;
+        const cur = btn.dataset.state;
+        const next = cur === 'raised' ? 'lowered' : 'raised';
+        signalArmCmd(sid, dir, next);
+    });
 }
 
-function toHtml(state) {
-    if (state === 'raised')  return '<span class="to-raised"  title="Raised — stop for orders">&#x25B2;</span>';
-    if (state === 'lowered') return '<span class="to-lowered" title="Lowered — clear">&#x25BC;</span>';
-    return '<span class="to-none">&#x25BC;</span>';
+// C&O-type TO signals: UP arm (raised) = clear; DOWN arm (lowered) = stop for orders
+function armHtml(sid, dir, state) {
+    const isStop = state === 'lowered';
+    const cls    = isStop ? 'raised' : state === 'raised' ? 'lowered' : 'none';
+    const sym    = state === 'raised' ? '▲' : '▼';
+    const title  = isStop
+        ? 'DOWN — stop for orders (click to raise/clear)'
+        : 'UP — clear (click to lower for orders)';
+    return `<button class="arm-btn ${cls}" data-sid="${sid}" data-dir="${dir}" data-state="${state || 'raised'}" title="${title}">${sym}</button>`;
 }
 
 function updateToSignal(sid, dir, state) {
     const el = document.getElementById(`to-${sid}-${dir}`);
     if (!el) return;
-    el.innerHTML = toHtml(state);
+    el.innerHTML = armHtml(sid, dir, state);
 }
 
 function updateStationStatus(sid, status) {
@@ -169,6 +233,20 @@ function updateNextTrain(sid, dir, train) {
     }
 }
 
+// ── Signal arm command ────────────────────────────────────────────────────────
+
+async function signalArmCmd(sid, dir, state) {
+    try {
+        await fetch('/api/signal/arm', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ station_id: sid, direction: dir, state }),
+        });
+    } catch {
+        setStatus('Signal arm command failed', true);
+    }
+}
+
 // ── OS log ───────────────────────────────────────────────────────────────────
 
 function fmtRrTime(t) {
@@ -202,7 +280,6 @@ function handleOsReport(event) {
     const newRow = row.firstChild;
     newRow.classList.add('os-flash');
     log.prepend(newRow);
-    // Cap to 50 rows in the DOM
     while (log.children.length > 50) log.removeChild(log.lastChild);
 }
 
@@ -215,7 +292,7 @@ async function clockCmd(action, extra = {}) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action, ...extra }),
         });
-    } catch (e) {
+    } catch {
         setStatus('Command failed', true);
     }
 }
@@ -226,7 +303,6 @@ function initControls() {
     document.getElementById('btn-reset').onclick  = () => {
         if (confirm('Reset clock to 00:00 Monday?')) clockCmd('reset');
     };
-
     for (const btn of document.querySelectorAll('.speed-btn')) {
         btn.onclick = () => {
             clockCmd('speed', { speed: parseInt(btn.dataset.speed) });
@@ -234,7 +310,6 @@ function initControls() {
             btn.classList.add('active');
         };
     }
-
     document.getElementById('btn-set').onclick = () => {
         const h = parseInt(document.getElementById('set-hour').value);
         const m = parseInt(document.getElementById('set-min').value);
@@ -242,6 +317,353 @@ function initControls() {
         if (isNaN(h) || isNaN(m) || isNaN(d)) return;
         clockCmd('set', { hour: h, minute: m, day: d });
     };
+
+    document.getElementById('btn-to-issue').onclick = () => openToModal();
+    document.getElementById('btn-to-issue-close').onclick = () => closeToModal();
+    document.getElementById('btn-to-log').onclick   = () => openToLogModal();
+    document.getElementById('btn-to-log-close').onclick   = () => closeToLogModal();
+    document.getElementById('btn-to-submit').onclick = () => submitToOrder();
+    document.getElementById('to-form-select').onchange = () =>
+        validateToForm(document.getElementById('to-type-select').value);
+
+    // Close modals on overlay click
+    document.getElementById('modal-to-issue').addEventListener('click', e => {
+        if (e.target === e.currentTarget) closeToModal();
+    });
+    document.getElementById('modal-to-log').addEventListener('click', e => {
+        if (e.target === e.currentTarget) closeToLogModal();
+    });
+}
+
+// ── TO Issue modal ────────────────────────────────────────────────────────────
+
+function populateToTypeSelect() {
+    const sel = document.getElementById('to-type-select');
+    sel.innerHTML = '';
+    const types = toTypes.to_types || {};
+    for (const [id, def] of Object.entries(types)) {
+        const opt = document.createElement('option');
+        opt.value = id;
+        opt.textContent = def.label || id;
+        sel.appendChild(opt);
+    }
+    sel.onchange = () => { buildToFields(sel.value); updateToPreview(); };
+    if (sel.options.length > 0) buildToFields(sel.options[0].value);
+}
+
+function populateToStationChecks() {
+    const container = document.getElementById('to-stations');
+    container.innerHTML = '';
+    for (const sid of stationIds) {
+        const item = document.createElement('label');
+        item.className = 'station-check-item';
+        item.innerHTML = `<input type="checkbox" name="to-sta" value="${sid}"> ${sid}`;
+        item.querySelector('input').onchange = (e) => {
+            item.classList.toggle('checked', e.target.checked);
+            updateToPreview();
+        };
+        container.appendChild(item);
+    }
+}
+
+function populateFormSelect() {
+    const sel = document.getElementById('to-form-select');
+    const active = new Set(activeForms);
+    // Keep placeholder; rebuild all form options
+    sel.innerHTML = '<option value="" disabled selected>FORM ?</option>';
+    for (const f of ALL_FORMS) {
+        if (!active.has(f.letter)) continue;
+        const opt = document.createElement('option');
+        opt.value = f.letter;
+        opt.textContent = `Form ${f.letter} — ${f.desc}`;
+        sel.appendChild(opt);
+    }
+}
+
+function buildToFields(toType) {
+    const container = document.getElementById('to-fields');
+    container.innerHTML = '';
+    const typeDef = (toTypes.to_types || {})[toType];
+    if (!typeDef) return;
+    for (const f of typeDef.fields || []) {
+        const row = document.createElement('div');
+        row.className = 'form-row';
+        row.dataset.fieldId = f.id;
+        const label = document.createElement('label');
+        label.setAttribute('for', `to-f-${f.id}`);
+        label.textContent = f.label + (f.required ? '' : ' (optional)');
+        row.appendChild(label);
+
+        let input;
+        if (f.type === 'boolean') {
+            const wrap = document.createElement('div');
+            wrap.className = 'form-bool';
+            input = document.createElement('input');
+            input.type = 'checkbox';
+            input.id = `to-f-${f.id}`;
+            if (f.default === true) input.checked = true;
+            const lbl = document.createElement('label');
+            lbl.setAttribute('for', `to-f-${f.id}`);
+            lbl.textContent = f.label;
+            wrap.appendChild(input);
+            wrap.appendChild(lbl);
+            row.innerHTML = '';  // clear label already added
+            row.appendChild(wrap);
+        } else if (f.type === 'direction') {
+            input = document.createElement('select');
+            input.id = `to-f-${f.id}`;
+            input.innerHTML = '<option value="N">North (N)</option><option value="S">South (S)</option>';
+            row.appendChild(input);
+        } else if (f.type === 'station_id') {
+            input = document.createElement('select');
+            input.id = `to-f-${f.id}`;
+            input.innerHTML = stationIds.map(s =>
+                `<option value="${s}">${s} — ${stationNames[s] || s}</option>`).join('');
+            row.appendChild(input);
+        } else if (f.type === 'integer') {
+            input = document.createElement('input');
+            input.type = 'number';
+            input.id = `to-f-${f.id}`;
+            if (f.min != null) input.min = f.min;
+            if (f.max != null) input.max = f.max;
+            input.value = f.min ?? 2;
+            row.appendChild(input);
+        } else {
+            // train_number, engine_number, string, rr_time
+            input = document.createElement('input');
+            input.type = 'text';
+            input.id = `to-f-${f.id}`;
+            if (f.type === 'rr_time') input.placeholder = 'HH:MM';
+            row.appendChild(input);
+        }
+
+        if (f.help) {
+            const hint = document.createElement('span');
+            hint.className = 'hint';
+            hint.textContent = f.help;
+            row.appendChild(hint);
+        }
+
+        if (input) input.oninput = () => { handleFieldChange(toType); updateToPreview(); };
+        if (input && input.type === 'select-one')
+            input.onchange = () => { handleFieldChange(toType); updateToPreview(); };
+
+        container.appendChild(row);
+    }
+
+    if (toType === 'meet') {
+        const note = document.createElement('div');
+        note.id = 'to-superiority';
+        note.className = 'superiority-note hint-note';
+        note.textContent = 'Select direction of Train A to verify superiority.';
+        container.appendChild(note);
+    }
+
+    handleFieldChange(toType);
+}
+
+function handleFieldChange(toType) {
+    // Hide/show fields with hidden_when conditions
+    const typeDef = (toTypes.to_types || {})[toType];
+    if (!typeDef) return;
+    for (const f of typeDef.fields || []) {
+        if (!f.hidden_when) continue;
+        const row = document.querySelector(`[data-field-id="${f.id}"]`);
+        if (!row) continue;
+        let hide = false;
+        for (const [condId, condVal] of Object.entries(f.hidden_when)) {
+            const condEl = document.getElementById(`to-f-${condId}`);
+            if (condEl && condEl.checked === condVal) { hide = true; break; }
+        }
+        row.style.display = hide ? 'none' : '';
+    }
+    validateToForm(toType);
+    if (toType === 'meet') updateSuperiorityIndicator(getToFields(toType));
+}
+
+function validateToForm(toType) {
+    const typeDef = (toTypes.to_types || {})[toType];
+    const btn = document.getElementById('btn-to-submit');
+    if (!typeDef) { btn.disabled = true; return; }
+    const formSel = document.getElementById('to-form-select');
+    if (!formSel || !formSel.value) { btn.disabled = true; return; }
+    for (const f of typeDef.fields || []) {
+        if (!f.required) continue;
+        if (f.type === 'boolean') continue;
+        const row = document.querySelector(`[data-field-id="${f.id}"]`);
+        if (row && row.style.display === 'none') continue;
+        const el = document.getElementById(`to-f-${f.id}`);
+        if (!el || !el.value.trim()) { btn.disabled = true; return; }
+    }
+    // At least one station must be checked
+    const checked = [...document.querySelectorAll('#to-stations input:checked')];
+    btn.disabled = checked.length === 0;
+}
+
+function getToFields(toType) {
+    const typeDef = (toTypes.to_types || {})[toType];
+    if (!typeDef) return {};
+    const result = {};
+    for (const f of typeDef.fields || []) {
+        const el = document.getElementById(`to-f-${f.id}`);
+        if (!el) continue;
+        if (f.type === 'boolean') result[f.id] = el.checked;
+        else if (f.type === 'integer') result[f.id] = parseInt(el.value, 10) || 0;
+        else result[f.id] = el.value.trim();
+    }
+    return result;
+}
+
+// ── TO text renderer ─────────────────────────────────────────────────────────
+// Reads the template string from to_types.json and substitutes field values
+// plus computed variables. Matches the CYD firmware rendering from the same fields.
+
+function renderToText(toType, fields) {
+    const typeDef = (toTypes.to_types || {})[toType];
+    if (!typeDef || !typeDef.template) return '';
+
+    const sn = sid => stationNames[sid] || sid || '?';
+    const dw = d   => DIR_WORD[d] || d || '?';
+
+    const computed = {
+        station_name:      sn(fields.station),
+        from_station_name: sn(fields.from_station),
+        to_station_name:   sn(fields.to_station),
+        direction_word:    dw(fields.direction),
+        direction_b_word:  dw(fields.direction_b),
+        train_b_ref:       fields.train_b_is_extra
+            ? `Extra ${fields.train_b || '?'} ${dw(fields.direction_b)}`
+            : `No. ${fields.train_b || '?'} Eng ${fields.engine_b || '?'}`,
+        partial_suffix:    (fields.from_station && fields.to_station)
+            ? ` ${sn(fields.from_station)} to ${sn(fields.to_station)}`
+            : '',
+    };
+
+    const vars = Object.assign({}, fields, computed);
+    return typeDef.template.replace(/\{(\w+)\}/g, (_, key) =>
+        (vars[key] !== undefined && vars[key] !== null && String(vars[key]) !== '')
+            ? String(vars[key])
+            : '?'
+    );
+}
+
+// ── Meet superiority indicator ────────────────────────────────────────────────
+
+function updateSuperiorityIndicator(fields) {
+    const el = document.getElementById('to-superiority');
+    if (!el) return;
+
+    const supDir = (layoutRules.superior_direction || '').toUpperCase();
+    if (!supDir) { el.className = 'superiority-note'; el.textContent = ''; return; }
+
+    const bExtra = !!fields.train_b_is_extra;
+    const dirA   = (fields.direction_a || '').toUpperCase();
+
+    if (bExtra) {
+        el.className = 'superiority-note warn';
+        el.textContent = 'Train B is extra — inferior to all scheduled trains. Train A (scheduled) should hold the main. Consider swapping.';
+        return;
+    }
+    if (!dirA) {
+        el.className = 'superiority-note hint-note';
+        el.textContent = 'Select direction of Train A to verify superiority.';
+        return;
+    }
+    if (dirA === supDir) {
+        el.className = 'superiority-note warn';
+        el.textContent = `Train A is ${DIR_WORD[dirA] || dirA} (superior direction) — should hold the main. Consider swapping Train A and B.`;
+    } else {
+        el.className = 'superiority-note ok';
+        el.textContent = `✓ Train A is ${DIR_WORD[dirA] || dirA} (inferior direction) — correctly takes the siding.`;
+    }
+}
+
+function updateToPreview() {
+    const toType = document.getElementById('to-type-select').value;
+    const fields = getToFields(toType);
+    const text   = renderToText(toType, fields);
+    document.getElementById('to-preview').textContent = text;
+    validateToForm(toType);
+}
+
+async function submitToOrder() {
+    const toType = document.getElementById('to-type-select').value;
+    const form   = document.getElementById('to-form-select').value;
+    const fields = getToFields(toType);
+    const addressed_to = [...document.querySelectorAll('#to-stations input:checked')]
+                          .map(el => el.value);
+    const errEl = document.getElementById('to-issue-err');
+    errEl.textContent = '';
+
+    try {
+        const r = await fetch('/api/to/issue', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ to_type: toType, form, fields, addressed_to }),
+        });
+        const body = await r.json();
+        if (!r.ok) { errEl.textContent = body.error || 'Error'; return; }
+        closeToModal();
+    } catch {
+        errEl.textContent = 'Request failed';
+    }
+}
+
+function openToModal() {
+    document.getElementById('to-form-select').value = '';
+    const sel = document.getElementById('to-type-select');
+    if (sel.options.length > 0) {
+        buildToFields(sel.value);
+        updateToPreview();
+    }
+    // Pre-select all stations
+    document.querySelectorAll('#to-stations input').forEach(el => {
+        el.checked = true;
+        el.closest('.station-check-item').classList.add('checked');
+    });
+    document.getElementById('to-issue-err').textContent = '';
+    document.getElementById('modal-to-issue').hidden = false;
+}
+
+function closeToModal() {
+    document.getElementById('modal-to-issue').hidden = true;
+}
+
+// ── TO Log modal ──────────────────────────────────────────────────────────────
+
+function toLogEntryHtml(entry) {
+    const typeDef = (toTypes.to_types || {})[entry.to_type] || {};
+    const text = renderToText(entry.to_type, entry.fields || {});
+    const ackBadges = Object.entries(entry.acks || {}).map(([sid, ack]) =>
+        `<span class="ack-badge ${ack ? 'received' : 'pending'}" title="${ack ? `ACK ${ack.rr_time}` : 'Pending'}">${sid}</span>`
+    ).join('');
+    return `<div class="to-log-entry">
+        <div class="to-log-header">
+            <span class="to-log-seq">#${entry.seq}</span>
+            <span class="to-log-type">${typeDef.label || entry.to_type}</span>
+            <span class="to-log-time">${fmtRrTime(entry.issued_rr_time)}</span>
+        </div>
+        <div class="to-log-text">${escHtml(text)}</div>
+        <div class="to-log-acks">${ackBadges}</div>
+    </div>`;
+}
+
+function refreshToLogModal() {
+    const container = document.getElementById('to-log-list');
+    if (toLogData.length === 0) {
+        container.innerHTML = '<em class="muted">No orders issued yet.</em>';
+        return;
+    }
+    container.innerHTML = toLogData.map(toLogEntryHtml).join('');
+}
+
+function openToLogModal() {
+    refreshToLogModal();
+    document.getElementById('modal-to-log').hidden = false;
+}
+
+function closeToLogModal() {
+    document.getElementById('modal-to-log').hidden = true;
 }
 
 // ── Utility ──────────────────────────────────────────────────────────────────
@@ -250,6 +672,10 @@ function setStatus(msg, isError = false) {
     const el = document.getElementById('status-bar');
     el.textContent = msg;
     el.className = isError ? 'error' : '';
+}
+
+function escHtml(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 // ── Boot ─────────────────────────────────────────────────────────────────────

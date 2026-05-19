@@ -21,6 +21,7 @@ TOPIC_STATION_STATUS = "trains/station/+/status"
 TOPIC_TO_STATE = "trains/signal/+/to/+/state"
 TOPIC_CLOCK_CONTROL = "trains/clock/control"
 TOPIC_OS = "trains/os/+"
+TOPIC_TO_ACK = "trains/to/+/ack"
 
 CLIENT_ID = "rr_dispatcher"
 
@@ -62,6 +63,14 @@ class MQTTClient:
         payload.update(kwargs)
         self._client.publish(TOPIC_CLOCK_CONTROL, json.dumps(payload), qos=1)
 
+    def publish_to_order(self, station_id: str, payload: dict) -> None:
+        topic = f"trains/to/{station_id}"
+        self._client.publish(topic, json.dumps(payload), qos=2)
+
+    def publish_signal_arm(self, station_id: str, direction: str, arm_state: str) -> None:
+        topic = f"trains/signal/{station_id}/to/{direction}/cmd"
+        self._client.publish(topic, json.dumps({"state": arm_state}), qos=1, retain=True)
+
     # ── Background thread ────────────────────────────────────────────────────
 
     def _run(self) -> None:
@@ -87,6 +96,7 @@ class MQTTClient:
             (TOPIC_STATION_STATUS, 1),
             (TOPIC_TO_STATE, 1),
             (TOPIC_OS, 1),
+            (TOPIC_TO_ACK, 1),
         ])
 
     def _on_disconnect(self, client, userdata, flags, reason_code, properties) -> None:
@@ -101,6 +111,8 @@ class MQTTClient:
             return
 
         if msg.topic == TOPIC_CLOCK_TIME:
+            if self._state.check_day(payload.get("day", 0)):
+                log.info("RR day changed to %d — TO sequence reset (Rule 203)", payload.get("day"))
             self._state.clock = payload
             event = {
                 "type": "clock_update",
@@ -151,6 +163,30 @@ class MQTTClient:
             if len(self._state.os_log) > OS_LOG_MAX:
                 self._state.os_log = self._state.os_log[:OS_LOG_MAX]
             event = {"type": "os_report", "entry": entry}
+        elif msg.topic.startswith("trains/to/") and msg.topic.endswith("/ack"):
+            # trains/to/{station_id}/ack
+            parts = msg.topic.split("/")
+            if len(parts) != 4:
+                return
+            station_id = parts[2]
+            seq = payload.get("seq")
+            if seq is None:
+                return
+            ack_data = {
+                "station_id": station_id,
+                "rr_time":    payload.get("rr_time", "?"),
+                "copies":     payload.get("copies", 2),
+            }
+            to_entry = self._state.record_ack(seq, station_id, ack_data)
+            if to_entry is None:
+                return
+            event = {
+                "type":       "to_ack",
+                "seq":        seq,
+                "station_id": station_id,
+                "ack":        ack_data,
+                "all_acked":  all(v is not None for v in to_entry["acks"].values()),
+            }
         else:
             return
 

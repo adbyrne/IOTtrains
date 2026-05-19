@@ -29,6 +29,13 @@
           "required": true
         },
         {
+          "id": "direction_a",
+          "label": "Direction of Train A",
+          "type": "direction",
+          "required": true,
+          "help": "Used to verify superiority — does not appear in order text"
+        },
+        {
           "id": "train_b_is_extra",
           "label": "Train B is an extra",
           "type": "boolean",

@@ -119,16 +119,17 @@
           "name": "Quilly Mine #1",
           "milepost": 51.4,
           "milepost_exit": null,
+          "milepost_note": "Industry spur off Xina Pass — prototype distance ~14 mi; spur length TBD pending remodel",
           "switchback": false,
-          "within_limits_of": null,
-          "types": ["S"],
+          "within_limits_of": "XP",
+          "types": ["I"],
           "cyd": false,
           "show_times": false,
           "show_both_times": false,
           "siding_length_cars": null,
           "flagging_required": false,
           "service_facilities": [],
-          "crew_notes": []
+          "crew_notes": ["Mine exchange at XP — set out loads, pick up empties at XP spur"]
         },
         {
           "id": "BB",
@@ -165,9 +166,9 @@
         {
           "id": "MC",
           "name": "Michelles Cove",
-          "milepost": 78.2,
+          "milepost": 99.2,
           "milepost_exit": null,
-          "milepost_note": "switchback lead ~1.5 mi southward — milepost_exit TBD pending remodel",
+          "milepost_note": "QM2 spur ~1.5 mi off MC — milepost_exit TBD pending remodel (using QM2 distance pending XTrkCAD survey)",
           "switchback": true,
           "within_limits_of": null,
           "types": ["TO"],
@@ -182,11 +183,12 @@
         {
           "id": "QM2",
           "name": "Quilly Mine #2",
-          "milepost": 99.2,
+          "milepost": null,
           "milepost_exit": null,
+          "milepost_note": "Industry spur off Michelles Cove — spur length TBD pending XTrkCAD survey",
           "switchback": false,
-          "within_limits_of": null,
-          "types": ["S"],
+          "within_limits_of": "MC",
+          "types": ["I"],
           "cyd": false,
           "show_times": false,
           "show_both_times": false,
@@ -359,8 +361,7 @@
           "days": [1, 2, 3, 4, 5, 6, 7],
           "schedule": [
             { "location": "WP_YARD", "depart": "03:15" },
-            { "location": "XP",      "depart": "03:35" },
-            { "location": "QM1",     "depart": "03:38" }
+            { "location": "XP",      "arrive": "03:35", "depart": "03:38", "note": "Setout QM1 spur" }
           ]
         },
         {
@@ -374,7 +375,7 @@
             { "location": "XP",      "depart": "00:35" },
             { "location": "BB",      "depart": "00:49" },
             { "location": "JC",      "depart": "01:07" },
-            { "location": "QM2",     "depart": "01:16" }
+            { "location": "MC",      "arrive": "01:16", "note": "Setout QM2 spur" }
           ]
         },
         {
@@ -385,8 +386,7 @@
           "days": [1, 2, 3, 4, 5, 6, 7],
           "schedule": [
             { "location": "WP_YARD", "depart": "12:20" },
-            { "location": "XP",      "depart": "12:40" },
-            { "location": "QM1",     "depart": "12:43" }
+            { "location": "XP",      "arrive": "12:40", "depart": "12:43", "note": "Setout QM1 spur" }
           ]
         },
         {
@@ -400,7 +400,7 @@
             { "location": "XP",      "depart": "11:59" },
             { "location": "BB",      "depart": "12:13" },
             { "location": "JC",      "depart": "12:31" },
-            { "location": "QM2",     "depart": "12:40" }
+            { "location": "MC",      "arrive": "12:40", "note": "Setout QM2 spur" }
           ]
         },
         {
@@ -411,8 +411,7 @@
           "days": [1, 2, 3, 4, 5, 6, 7],
           "schedule": [
             { "location": "WP_YARD", "depart": "20:30" },
-            { "location": "XP",      "depart": "21:00" },
-            { "location": "QM1",     "depart": "21:03" }
+            { "location": "XP",      "arrive": "21:00", "depart": "21:03", "note": "Setout QM1 spur" }
           ]
         },
         {
@@ -512,8 +511,7 @@
           "direction": "S",
           "days": [1, 2, 3, 4, 5, 6, 7],
           "schedule": [
-            { "location": "QM1",     "depart": "05:00" },
-            { "location": "XP",      "depart": "05:08" },
+            { "location": "XP",      "depart": "05:08", "note": "Pickup QM1 spur" },
             { "location": "WP_YARD", "arrive": "05:33" }
           ]
         },
@@ -524,7 +522,7 @@
           "direction": "S",
           "days": [1, 2, 3, 4, 5, 6, 7],
           "schedule": [
-            { "location": "QM2",     "depart": "03:04" },
+            { "location": "MC",      "depart": "03:04", "note": "Pickup QM2 spur" },
             { "location": "JC",      "depart": "03:26" },
             { "location": "BB",      "depart": "03:52" },
             { "location": "XP",      "arrive": "04:02", "depart": "04:14", "note": "Wait for No. 11" },
@@ -538,8 +536,7 @@
           "direction": "S",
           "days": [1, 2, 3, 4, 5, 6, 7],
           "schedule": [
-            { "location": "QM1",     "depart": "13:45" },
-            { "location": "XP",      "arrive": "13:48", "depart": "14:24", "note": "Wait for No. 24" },
+            { "location": "XP",      "depart": "14:24", "note": "Pickup QM1 spur; Wait for No. 24" },
             { "location": "WP_YARD", "arrive": "14:49" }
           ]
         },
@@ -550,7 +547,7 @@
           "direction": "S",
           "days": [1, 2, 3, 4, 5, 6, 7],
           "schedule": [
-            { "location": "QM2",     "depart": "13:45" },
+            { "location": "MC",      "depart": "13:45", "note": "Pickup QM2 spur" },
             { "location": "JC",      "depart": "14:07" },
             { "location": "BB",      "depart": "14:33" },
             { "location": "XP",      "depart": "14:43" },
@@ -564,8 +561,7 @@
           "direction": "S",
           "days": [1, 2, 3, 4, 5, 6, 7],
           "schedule": [
-            { "location": "QM1",     "depart": "22:00" },
-            { "location": "XP",      "depart": "22:08" },
+            { "location": "XP",      "depart": "22:08", "note": "Pickup QM1 spur" },
             { "location": "WP_YARD", "arrive": "22:33" }
           ]
         }
