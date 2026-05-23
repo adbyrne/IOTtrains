@@ -48,6 +48,9 @@ static const int  MQTT_PORT           = 1883;
 #define FIRMWARE_VER "2.3.0"
 
 // ── Signal arms (PCA9685 I2C servo driver) ────────────────────────────────
+// CYD CN1 connector: IO27=SDA, IO22=SCL (GPIO21 is TFT backlight — cannot use)
+static const int     SIG_I2C_SDA     = 27;
+static const int     SIG_I2C_SCL     = 22;
 static const uint8_t SIG_PCA_ADDR    = 0x40;
 static const uint8_t SIG_CHAN_N      = 0;     // swap cables to flip N/S sense
 static const uint8_t SIG_CHAN_S      = 1;
@@ -566,7 +569,7 @@ static void signalTask(void*) {
 }
 
 static void initSignalArms() {
-    Wire.begin();
+    Wire.begin(SIG_I2C_SDA, SIG_I2C_SCL);
     Wire.beginTransmission(SIG_PCA_ADDR);
     pcaPresent = (Wire.endTransmission() == 0);
 
