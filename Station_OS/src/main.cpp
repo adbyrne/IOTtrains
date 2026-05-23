@@ -22,6 +22,8 @@
 #include <lvgl.h>
 #include <TFT_eSPI.h>
 #include <XPT2046_Touchscreen.h>
+#include <Wire.h>
+#include <Adafruit_PWMServoDriver.h>
 #include <map>
 #include <string>
 #include <vector>
@@ -43,7 +45,19 @@ extern "C" {
 #define DRAW_BUF_SIZE (SCREEN_WIDTH * SCREEN_HEIGHT / 10 * (LV_COLOR_DEPTH / 8))
 
 static const int  MQTT_PORT           = 1883;
-#define FIRMWARE_VER "2.2.0"
+#define FIRMWARE_VER "2.3.0"
+
+// ── Signal arms (PCA9685 I2C servo driver) ────────────────────────────────
+static const uint8_t SIG_PCA_ADDR    = 0x40;
+static const uint8_t SIG_CHAN_N      = 0;     // swap cables to flip N/S sense
+static const uint8_t SIG_CHAN_S      = 1;
+static const int     SIG_RAISED_DEF  = 45;
+static const int     SIG_LOWERED_DEF = 90;
+static const int     SIG_SWEEP_MS    = 15;    // ms per degree
+static const int     SIG_BOUNCE_DEG  = 3;
+static const int     SIG_BOUNCE_HOLD = 60;
+static const int     SIG_BOUNCE_OVER = 50;
+static const int     SIG_BOUNCE_BACK = 30;
 static const int  HEARTBEAT_SECS      = 60;
 static const int  DISPLAY_UPDATE_MS   = 1000;
 // Minutes before departure to consider a train "now" on display
@@ -60,7 +74,11 @@ static const char* KEY_WPAS  = "wpas";
 static const char* KEY_MQTT  = "mqtt_ip";
 static const char* KEY_MUSER = "muser";
 static const char* KEY_MPAS  = "mpas";
-static const char* KEY_STAID = "sta_id";
+static const char* KEY_STAID  = "sta_id";
+static const char* KEY_SIG_NR = "sig_nr";   // N arm raised angle
+static const char* KEY_SIG_NL = "sig_nl";   // N arm lowered angle
+static const char* KEY_SIG_SR = "sig_sr";   // S arm raised angle
+static const char* KEY_SIG_SL = "sig_sl";   // S arm lowered angle
 
 // ── Config ────────────────────────────────────────────────────────────────
 struct Config {
@@ -70,11 +88,45 @@ struct Config {
     char muser[32]   = "cyd_unit";
     char mpas[32]    = {};
     char sta_id[4]   = {};
+    int  sig_n_raised  = SIG_RAISED_DEF;
+    int  sig_n_lowered = SIG_LOWERED_DEF;
+    int  sig_s_raised  = SIG_RAISED_DEF;
+    int  sig_s_lowered = SIG_LOWERED_DEF;
 };
 
 static Config      cfg;
 static Preferences prefs;
 static bool        provisioned = false;
+
+// ── Signal arm types ──────────────────────────────────────────────────────
+enum class ArmState { UNKNOWN, LOWERED, RAISED };
+
+struct SignalArm {
+    uint8_t     channel  = 0;
+    const char* dir      = nullptr;
+    ArmState    state    = ArmState::UNKNOWN;
+    int         angle    = -1;   // -1 = position unknown until first command
+    int*        pRaised  = nullptr;
+    int*        pLowered = nullptr;
+};
+
+struct SignalCmd {
+    uint8_t  arm;
+    int      toAngle;
+    bool     bounce;
+    ArmState newState;  // UNKNOWN = calibration sweep (no state publish)
+};
+
+static const int     SIG_QUEUE_DEPTH = 4;
+static SignalArm     sigN, sigS;
+static QueueHandle_t sigQueue   = nullptr;
+static bool          pcaPresent = false;
+static Adafruit_PWMServoDriver pca(SIG_PCA_ADDR);
+
+static uint16_t degToTicks(int deg) {
+    // 0°=500µs, 180°=2500µs at 50 Hz / 4096 ticks per period
+    return (uint16_t)((long)map(deg, 0, 180, 500, 2500) * 4096L / 20000L);
+}
 
 // ── Clock state ───────────────────────────────────────────────────────────
 struct ClockState {
@@ -136,6 +188,7 @@ struct PendingTo {
     int  seq;
     char to_type[16];
     char trains[64];      // comma-separated train/engine numbers for matching
+    char seenTrains[64];  // comma-separated trains that have ACKed; "" initially
     char fields_json[400]; // fields object as JSON string
 };
 
@@ -205,6 +258,13 @@ static volatile bool   mqttOnline      = false;
 static volatile bool   mqttStatusDirty = false;
 
 // ── Forward declarations ──────────────────────────────────────────────────
+static void initSignalArms();
+static void sigCmdTopic(char* buf, size_t n, int arm);
+static void sigStateTopic(char* buf, size_t n, int arm);
+static void publishSignalState(int arm);
+static void queueSignalMove(int arm, ArmState target);
+static void queueSignalAngle(int arm, int angle);
+static void signalTask(void* param);
 static void loadConfig();
 static void saveConfig();
 static void loadSchedule();
@@ -258,6 +318,10 @@ static void loadConfig() {
     prefs.getString(KEY_MUSER, cfg.muser,   sizeof(cfg.muser));
     prefs.getString(KEY_MPAS,  cfg.mpas,    sizeof(cfg.mpas));
     prefs.getString(KEY_STAID, cfg.sta_id,  sizeof(cfg.sta_id));
+    cfg.sig_n_raised  = prefs.getInt(KEY_SIG_NR, SIG_RAISED_DEF);
+    cfg.sig_n_lowered = prefs.getInt(KEY_SIG_NL, SIG_LOWERED_DEF);
+    cfg.sig_s_raised  = prefs.getInt(KEY_SIG_SR, SIG_RAISED_DEF);
+    cfg.sig_s_lowered = prefs.getInt(KEY_SIG_SL, SIG_LOWERED_DEF);
     prefs.end();
     if (strlen(cfg.muser) == 0) strlcpy(cfg.muser, "cyd_unit", sizeof(cfg.muser));
 }
@@ -271,6 +335,10 @@ static void saveConfig() {
     prefs.putString(KEY_MUSER, cfg.muser);
     prefs.putString(KEY_MPAS,  cfg.mpas);
     prefs.putString(KEY_STAID, cfg.sta_id);
+    prefs.putInt(KEY_SIG_NR, cfg.sig_n_raised);
+    prefs.putInt(KEY_SIG_NL, cfg.sig_n_lowered);
+    prefs.putInt(KEY_SIG_SR, cfg.sig_s_raised);
+    prefs.putInt(KEY_SIG_SL, cfg.sig_s_lowered);
     prefs.end();
     provisioned = true;
 }
@@ -407,6 +475,122 @@ static void findNextTrain(const std::vector<TrainEntry>& sched, int cur_min,
         snprintf(out, n, "  No.%-3s  NOW", found->num);
     else
         snprintf(out, n, "  No.%-3s  %s", found->num, tstr);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Signal arms (PCA9685)
+// ═══════════════════════════════════════════════════════════════════════════
+
+static void sigCmdTopic(char* buf, size_t n, int arm) {
+    snprintf(buf, n, "trains/signal/%s/to/%s/cmd",   cfg.sta_id, arm == 0 ? "N" : "S");
+}
+static void sigStateTopic(char* buf, size_t n, int arm) {
+    snprintf(buf, n, "trains/signal/%s/to/%s/state", cfg.sta_id, arm == 0 ? "N" : "S");
+}
+
+static void publishSignalState(int arm) {
+    if (!mqttReady || cfg.sta_id[0] == '\0') return;
+    SignalArm& a = (arm == 0) ? sigN : sigS;
+
+    char rrTimeBuf[8] = "00:00";
+    xSemaphoreTake(clkMutex, portMAX_DELAY);
+    int tot = clk.base_hour * 60 + clk.base_min;
+    if (clk.synced && clk.running) {
+        unsigned long e = millis() - clk.tick_ms;
+        tot += (int)((float)e / 1000.0f * clk.speed / 60.0f);
+    }
+    xSemaphoreGive(clkMutex);
+    tot %= 1440;
+    snprintf(rrTimeBuf, sizeof(rrTimeBuf), "%02d:%02d", tot / 60, tot % 60);
+
+    char topic[64], payload[128];
+    sigStateTopic(topic, sizeof(topic), arm);
+    snprintf(payload, sizeof(payload),
+             "{\"state\":\"%s\",\"station_id\":\"%s\",\"dir\":\"%s\",\"rr_time\":\"%s\"}",
+             a.state == ArmState::RAISED ? "raised" : "lowered",
+             cfg.sta_id, arm == 0 ? "N" : "S", rrTimeBuf);
+    mqttClient.publish(topic, 1, /*retain=*/true, payload);
+}
+
+static void queueSignalMove(int arm, ArmState target) {
+    if (!sigQueue || !pcaPresent) return;
+    SignalArm& a = (arm == 0) ? sigN : sigS;
+    int angle    = (target == ArmState::RAISED) ? *a.pRaised : *a.pLowered;
+    SignalCmd cmd = { (uint8_t)arm, angle, /*bounce=*/true, target };
+    xQueueSend(sigQueue, &cmd, 0);
+}
+
+static void queueSignalAngle(int arm, int angle) {
+    if (!sigQueue || !pcaPresent) return;
+    SignalCmd cmd = { (uint8_t)arm, angle, /*bounce=*/false, ArmState::UNKNOWN };
+    xQueueSend(sigQueue, &cmd, 0);
+}
+
+static void signalTask(void*) {
+    SignalArm*    arms[2]  = { &sigN, &sigS };
+    const uint8_t chans[2] = { SIG_CHAN_N, SIG_CHAN_S };
+    SignalCmd     cmd;
+
+    while (true) {
+        if (xQueueReceive(sigQueue, &cmd, portMAX_DELAY) != pdTRUE) continue;
+
+        SignalArm& arm  = *arms[cmd.arm];
+        int        from = (arm.angle >= 0) ? arm.angle : cmd.toAngle; // snap on first command
+
+        if (from != cmd.toAngle) {
+            int step = (cmd.toAngle > from) ? 1 : -1;
+            for (int a = from; a != cmd.toAngle; a += step) {
+                pca.setPWM(chans[cmd.arm], 0, degToTicks(a));
+                vTaskDelay(pdMS_TO_TICKS(SIG_SWEEP_MS));
+            }
+            pca.setPWM(chans[cmd.arm], 0, degToTicks(cmd.toAngle));
+
+            if (cmd.bounce) {
+                vTaskDelay(pdMS_TO_TICKS(SIG_BOUNCE_HOLD));
+                pca.setPWM(chans[cmd.arm], 0, degToTicks(cmd.toAngle + step * SIG_BOUNCE_DEG));
+                vTaskDelay(pdMS_TO_TICKS(SIG_BOUNCE_OVER));
+                pca.setPWM(chans[cmd.arm], 0, degToTicks(cmd.toAngle));
+                vTaskDelay(pdMS_TO_TICKS(SIG_BOUNCE_BACK));
+            }
+        } else {
+            pca.setPWM(chans[cmd.arm], 0, degToTicks(cmd.toAngle));
+        }
+
+        arm.angle = cmd.toAngle;
+        arm.state = cmd.newState;
+
+        if (cmd.newState != ArmState::UNKNOWN && mqttReady) {
+            publishSignalState(cmd.arm);
+        }
+    }
+}
+
+static void initSignalArms() {
+    Wire.begin();
+    Wire.beginTransmission(SIG_PCA_ADDR);
+    pcaPresent = (Wire.endTransmission() == 0);
+
+    if (!pcaPresent) {
+        Serial.println("[SIG] PCA9685 not found — signal arms disabled");
+        return;
+    }
+
+    pca.begin();
+    pca.setOscillatorFrequency(27000000);
+    pca.setPWMFreq(50);
+    delay(10);
+
+    sigN.channel  = SIG_CHAN_N;  sigN.dir = "N";
+    sigN.pRaised  = &cfg.sig_n_raised;
+    sigN.pLowered = &cfg.sig_n_lowered;
+
+    sigS.channel  = SIG_CHAN_S;  sigS.dir = "S";
+    sigS.pRaised  = &cfg.sig_s_raised;
+    sigS.pLowered = &cfg.sig_s_lowered;
+
+    sigQueue = xQueueCreate(SIG_QUEUE_DEPTH, sizeof(SignalCmd));
+    xTaskCreate(signalTask, "sigTask", 4096, nullptr, 5, nullptr);
+    Serial.println("[SIG] PCA9685 OK — signal arms ready (N=ch0, S=ch1)");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -708,9 +892,9 @@ static void renderToText(const PendingTo& to, char* out, size_t n) {
             snprintf(bRef, sizeof(bRef), "No. %s Eng %s",
                      doc["train_b"] | "?", doc["engine_b"] | "?");
         snprintf(out, n,
-            "No. %s Eng %s take siding at %s and wait for %s %s.",
+            "No. %s Eng %s take siding at %s and wait for %s.",
             doc["train_a"] | "?", doc["engine_a"] | "?",
-            sn("station"), bRef, dw("direction_b"));
+            sn("station"), bRef);
 
     } else if (strcmp(to.to_type, "wait") == 0) {
         snprintf(out, n,
@@ -755,9 +939,7 @@ static void renderToText(const PendingTo& to, char* out, size_t n) {
 
 static void publishToAck(int seq) {
     if (!mqttReady || cfg.sta_id[0] == '\0') return;
-    char topic[48];
-    snprintf(topic, sizeof(topic), "trains/to/%s/ack", cfg.sta_id);
-    // Get current RR time
+    // Get current RR time (shared by both publishes)
     char rrTime[12];
     xSemaphoreTake(clkMutex, portMAX_DELAY);
     int total = clk.base_hour * 60 + clk.base_min;
@@ -769,7 +951,11 @@ static void publishToAck(int seq) {
     total %= 1440;
     snprintf(rrTime, sizeof(rrTime), "%02d:%02d", total / 60, total % 60);
 
+    char topic[64];
     char payload[128];
+
+    // Station-level ACK — only published when all trains have received the order
+    snprintf(topic, sizeof(topic), "trains/to/%s/ack", cfg.sta_id);
     snprintf(payload, sizeof(payload),
              "{\"seq\":%d,\"station_id\":\"%s\",\"rr_time\":\"%s\",\"copies\":2}",
              seq, cfg.sta_id, rrTime);
@@ -781,17 +967,51 @@ static void onOrdersAck(lv_event_t* e) {
     if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
 
     int seqToAck = currentToSeq;
-    publishToAck(seqToAck);
 
-    // Remove the ACK'd TO from the queue
+    // Mark this train as having received the order; remove only when all trains have ACKed
     xSemaphoreTake(toMutex, portMAX_DELAY);
+    bool allSeen = false;
     for (auto it = pendingTos.begin(); it != pendingTos.end(); ++it) {
-        if (it->seq == seqToAck) {
-            pendingTos.erase(it);
-            break;
+        if (it->seq != seqToAck) continue;
+        // Append os_train to seenTrains
+        if (it->seenTrains[0]) strlcat(it->seenTrains, ",", sizeof(it->seenTrains));
+        strlcat(it->seenTrains, os_train, sizeof(it->seenTrains));
+        // Publish per-train receipt immediately so the dispatcher can track progress
+        if (mqttReady && cfg.sta_id[0] != '\0') {
+            char rcvdTopic[64];
+            char rcvdPayload[96];
+            snprintf(rcvdTopic, sizeof(rcvdTopic), "trains/to/%s/train_rcvd", cfg.sta_id);
+            snprintf(rcvdPayload, sizeof(rcvdPayload),
+                     "{\"seq\":%d,\"train\":\"%s\"}", it->seq, os_train);
+            mqttClient.publish(rcvdTopic, 1, false, rcvdPayload);
         }
+        // Check if every train in trains[] appears in seenTrains[]
+        // Use strtok_r to avoid clobbering outer save-state with inner loop
+        allSeen = true;
+        char tHay[64];
+        strlcpy(tHay, it->trains, sizeof(tHay));
+        char* outerSave = nullptr;
+        char* tok = strtok_r(tHay, ",", &outerSave);
+        while (tok) {
+            char sHay[64];
+            strlcpy(sHay, it->seenTrains, sizeof(sHay));
+            bool found = false;
+            char* innerSave = nullptr;
+            char* stok = strtok_r(sHay, ",", &innerSave);
+            while (stok) {
+                if (strcmp(stok, tok) == 0) { found = true; break; }
+                stok = strtok_r(nullptr, ",", &innerSave);
+            }
+            if (!found) { allSeen = false; break; }
+            tok = strtok_r(nullptr, ",", &outerSave);
+        }
+        if (allSeen) pendingTos.erase(it);
+        break;
     }
     xSemaphoreGive(toMutex);
+
+    // Publish station ACK only when all trains have received the order
+    if (allSeen) publishToAck(seqToAck);
 
     // Tear down current ORDERS screen before building next
     lv_obj_t* oldScr = tempScr;
@@ -855,19 +1075,20 @@ static void checkAndShowNextTo() {
     xSemaphoreTake(toMutex, portMAX_DELAY);
     PendingTo* match = nullptr;
     for (auto& pt : pendingTos) {
-        // Check if os_train appears in the comma-separated trains[] string
         char needle[12];
         snprintf(needle, sizeof(needle), "%s", os_train);
-        // Simple search: match whole token
-        char haystack[64];
-        strlcpy(haystack, pt.trains, sizeof(haystack));
-        bool found = false;
-        char* tok = strtok(haystack, ",");
-        while (tok) {
-            if (strcmp(tok, needle) == 0) { found = true; break; }
-            tok = strtok(nullptr, ",");
-        }
-        if (found) { match = &pt; break; }
+        // Match: os_train in trains[] AND not yet in seenTrains[]
+        auto inList = [&](const char* list) {
+            char buf[64];
+            strlcpy(buf, list, sizeof(buf));
+            char* tok = strtok(buf, ",");
+            while (tok) {
+                if (strcmp(tok, needle) == 0) return true;
+                tok = strtok(nullptr, ",");
+            }
+            return false;
+        };
+        if (inList(pt.trains) && !inList(pt.seenTrains)) { match = &pt; break; }
     }
 
     if (match) {
@@ -1237,6 +1458,15 @@ static void onMqttConnect(bool sessionPresent) {
         mqttClient.subscribe(toTopic, 2);
     }
 
+    // Subscribe to TO signal arm commands (retained — restores arm state on reconnect)
+    if (cfg.sta_id[0] != '\0' && pcaPresent) {
+        char sigTopic[64];
+        for (int i = 0; i < 2; i++) {
+            sigCmdTopic(sigTopic, sizeof(sigTopic), i);
+            mqttClient.subscribe(sigTopic, 1);
+        }
+    }
+
     // Publish online status with LWT already set; request clock sync
     publishStatus();
     needSyncRequest = true;
@@ -1273,6 +1503,7 @@ static void onMqttMessage(char* topic, char* payload,
             PendingTo pt;
             pt.seq = doc["seq"] | 0;
             strlcpy(pt.to_type, doc["to_type"] | "", sizeof(pt.to_type));
+            pt.seenTrains[0] = '\0';
 
             // Build comma-separated trains[] string for matching
             pt.trains[0] = '\0';
@@ -1286,9 +1517,17 @@ static void onMqttMessage(char* topic, char* payload,
             serializeJson(doc["fields"], pt.fields_json, sizeof(pt.fields_json));
 
             xSemaphoreTake(toMutex, portMAX_DELAY);
-            pendingTos.push_back(pt);
+            bool duplicate = false;
+            for (const auto& existing : pendingTos) {
+                if (existing.seq == pt.seq) { duplicate = true; break; }
+            }
+            if (!duplicate) pendingTos.push_back(pt);
             xSemaphoreGive(toMutex);
 
+            if (duplicate) {
+                Serial.printf("TO #%d duplicate ignored\n", pt.seq);
+                return;
+            }
             Serial.printf("TO #%d (%s) received; trains=[%s]\n",
                           pt.seq, pt.to_type, pt.trains);
             return;
@@ -1336,6 +1575,21 @@ static void onMqttMessage(char* topic, char* payload,
             clk.tick_ms = millis();
         }
         xSemaphoreGive(clkMutex);
+        return;
+    }
+
+    // ── TO signal arm command ─────────────────────────────────────────────────
+    if (cfg.sta_id[0] != '\0' && pcaPresent) {
+        char sigN_topic[64], sigS_topic[64];
+        sigCmdTopic(sigN_topic, sizeof(sigN_topic), 0);
+        sigCmdTopic(sigS_topic, sizeof(sigS_topic), 1);
+        if (strcmp(topic, sigN_topic) == 0 || strcmp(topic, sigS_topic) == 0) {
+            int         arm   = (strcmp(topic, sigN_topic) == 0) ? 0 : 1;
+            const char* state = doc["state"] | "";
+            if      (strcmp(state, "raised")  == 0) queueSignalMove(arm, ArmState::RAISED);
+            else if (strcmp(state, "lowered") == 0) queueSignalMove(arm, ArmState::LOWERED);
+            return;
+        }
     }
 }
 
@@ -1352,17 +1606,31 @@ static void cbHeartbeat(TimerHandle_t) { needHeartbeat = true; }
 // ═══════════════════════════════════════════════════════════════════════════
 
 static void printHelp() {
-    Serial.println("Station_OS provisioning CLI");
-    Serial.println("  set ssid <value>     WiFi SSID");
-    Serial.println("  set wpas <value>     WiFi password (blank = open)");
-    Serial.println("  set mqtt_ip <value>  MQTT broker IP");
-    Serial.println("  set muser <value>    MQTT username  [default: cyd_unit]");
-    Serial.println("  set mpas <value>     MQTT password");
-    Serial.println("  set sta_id <value>   Station ID (2 chars, e.g. BB)");
-    Serial.println("  show                 Print current config");
-    Serial.println("  save                 Save to NVS and reboot");
-    Serial.println("  clear                Erase NVS and reboot");
-    Serial.println("  help                 Show this message");
+    Serial.println("Station_OS CLI");
+    Serial.println("Network provisioning:");
+    Serial.println("  set ssid <value>              WiFi SSID");
+    Serial.println("  set wpas <value>              WiFi password (blank = open)");
+    Serial.println("  set mqtt_ip <value>           MQTT broker IP");
+    Serial.println("  set muser <value>             MQTT username  [default: cyd_unit]");
+    Serial.println("  set mpas <value>              MQTT password");
+    Serial.println("  set sta_id <value>            Station ID (2 chars, e.g. BB)");
+    Serial.println("  show                          Print current config");
+    Serial.println("  save                          Save to NVS and reboot");
+    Serial.println("  clear                         Erase NVS and reboot");
+    Serial.println("Signal arm calibration (PCA9685):");
+    Serial.println("  signal show                   Show arm angles and PCA status");
+    Serial.println("  signal set N raised <0-180>   Set N arm raised angle");
+    Serial.println("  signal set N lowered <0-180>  Set N arm lowered angle");
+    Serial.println("  signal set S raised <0-180>   Set S arm raised angle");
+    Serial.println("  signal set S lowered <0-180>  Set S arm lowered angle");
+    Serial.println("  signal sweep N <0-180>        Move N arm to angle (no bounce)");
+    Serial.println("  signal sweep S <0-180>        Move S arm to angle (no bounce)");
+    Serial.println("  signal raise N                Move N arm to configured raised angle");
+    Serial.println("  signal raise S                Move S arm to configured raised angle");
+    Serial.println("  signal lower N                Move N arm to configured lowered angle");
+    Serial.println("  signal lower S                Move S arm to configured lowered angle");
+    Serial.println("  signal save                   Save arm angles to NVS (no reboot)");
+    Serial.println("  help                          Show this message");
 }
 
 static void printConfig() {
@@ -1373,6 +1641,13 @@ static void printConfig() {
     Serial.printf("  mpas    = %s\n", strlen(cfg.mpas) ? "(set)" : "(empty)");
     Serial.printf("  sta_id  = %s\n", cfg.sta_id);
     Serial.printf("  prov    = %s\n", provisioned ? "yes" : "no");
+    Serial.printf("  pca9685 = %s\n", pcaPresent ? "found" : "not found");
+    if (pcaPresent) {
+        Serial.printf("  N arm: raised=%d  lowered=%d  (cur angle=%d)\n",
+                      cfg.sig_n_raised, cfg.sig_n_lowered, sigN.angle);
+        Serial.printf("  S arm: raised=%d  lowered=%d  (cur angle=%d)\n",
+                      cfg.sig_s_raised, cfg.sig_s_lowered, sigS.angle);
+    }
 }
 
 static void handleSerialCLI() {
@@ -1412,6 +1687,78 @@ static void handleSerialCLI() {
         else if (key == "sta_id")  strlcpy(cfg.sta_id,  val.c_str(), sizeof(cfg.sta_id));
         else { Serial.printf("Unknown key: %s\n", key.c_str()); return; }
         Serial.printf("Set %s = %s\n", key.c_str(), val.c_str());
+    } else if (line == "signal show" || line.startsWith("signal ")) {
+        // ── Signal arm calibration ──────────────────────────────────────────
+        if (line == "signal show") {
+            printConfig();  // show() already includes signal info
+            return;
+        }
+
+        if (!pcaPresent) {
+            Serial.println("PCA9685 not found — signal commands unavailable");
+            return;
+        }
+
+        // Tokenise the rest after "signal "
+        String sub = line.substring(7);
+        sub.trim();
+
+        if (sub.startsWith("set ")) {
+            // signal set <N|S> <raised|lowered> <angle>
+            int sp1 = sub.indexOf(' ', 4);
+            int sp2 = (sp1 >= 0) ? sub.indexOf(' ', sp1 + 1) : -1;
+            if (sp1 < 0 || sp2 < 0) {
+                Serial.println("Usage: signal set <N|S> <raised|lowered> <0-180>");
+                return;
+            }
+            String dir = sub.substring(4, sp1);    dir.toUpperCase();
+            String pos = sub.substring(sp1 + 1, sp2);
+            int    deg = sub.substring(sp2 + 1).toInt();
+            if (deg < 0 || deg > 180) { Serial.println("Angle must be 0-180"); return; }
+            bool isN      = (dir == "N");
+            bool isRaised = (pos == "raised");
+            if      ( isN &&  isRaised) cfg.sig_n_raised  = deg;
+            else if ( isN && !isRaised) cfg.sig_n_lowered = deg;
+            else if (!isN &&  isRaised) cfg.sig_s_raised  = deg;
+            else                        cfg.sig_s_lowered = deg;
+            Serial.printf("%s arm %s = %d°  (type 'signal save' to persist)\n",
+                          isN ? "N" : "S", isRaised ? "raised" : "lowered", deg);
+
+        } else if (sub.startsWith("sweep ")) {
+            // signal sweep <N|S> <angle>
+            int sp = sub.indexOf(' ', 6);
+            if (sp < 0) { Serial.println("Usage: signal sweep <N|S> <0-180>"); return; }
+            String dir = sub.substring(6, sp);  dir.toUpperCase();
+            int    deg = sub.substring(sp + 1).toInt();
+            if (deg < 0 || deg > 180) { Serial.println("Angle must be 0-180"); return; }
+            int arm = (dir == "N") ? 0 : 1;
+            queueSignalAngle(arm, deg);
+            Serial.printf("Sweep %s → %d° (queued)\n", dir.c_str(), deg);
+
+        } else if (sub.startsWith("raise ") || sub.startsWith("lower ")) {
+            bool isRaise = sub.startsWith("raise ");
+            String dir   = sub.substring(6);  dir.trim();  dir.toUpperCase();
+            if (dir != "N" && dir != "S") {
+                Serial.printf("Usage: signal %s <N|S>\n", isRaise ? "raise" : "lower");
+                return;
+            }
+            int arm = (dir == "N") ? 0 : 1;
+            queueSignalMove(arm, isRaise ? ArmState::RAISED : ArmState::LOWERED);
+            Serial.printf("%s %s arm (queued)\n", isRaise ? "Raising" : "Lowering", dir.c_str());
+
+        } else if (sub == "save") {
+            prefs.begin(NVS_NS, false);
+            prefs.putInt(KEY_SIG_NR, cfg.sig_n_raised);
+            prefs.putInt(KEY_SIG_NL, cfg.sig_n_lowered);
+            prefs.putInt(KEY_SIG_SR, cfg.sig_s_raised);
+            prefs.putInt(KEY_SIG_SL, cfg.sig_s_lowered);
+            prefs.end();
+            Serial.println("Signal angles saved to NVS.");
+
+        } else {
+            Serial.println("Unknown signal command. Type 'help'.");
+        }
+
     } else {
         Serial.printf("Unknown command: %s (type 'help')\n", line.c_str());
     }
@@ -1467,6 +1814,9 @@ void setup() {
     // ── Synchronization primitives ────────────────────────────────────────
     clkMutex = xSemaphoreCreateMutex();
     toMutex  = xSemaphoreCreateMutex();
+
+    // ── Signal arms ───────────────────────────────────────────────────────
+    initSignalArms();
 
     // ── MQTT / WiFi ───────────────────────────────────────────────────────
     if (provisioned) {
