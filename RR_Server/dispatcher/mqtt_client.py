@@ -22,6 +22,7 @@ TOPIC_TO_STATE = "trains/signal/+/to/+/state"
 TOPIC_CLOCK_CONTROL = "trains/clock/control"
 TOPIC_OS = "trains/os/+"
 TOPIC_TO_ACK = "trains/to/+/ack"
+TOPIC_TO_TRAIN_RCVD = "trains/to/+/train_rcvd"
 
 CLIENT_ID = "rr_dispatcher"
 
@@ -97,6 +98,7 @@ class MQTTClient:
             (TOPIC_TO_STATE, 1),
             (TOPIC_OS, 1),
             (TOPIC_TO_ACK, 1),
+            (TOPIC_TO_TRAIN_RCVD, 1),
         ])
 
     def _on_disconnect(self, client, userdata, flags, reason_code, properties) -> None:
@@ -186,6 +188,25 @@ class MQTTClient:
                 "station_id": station_id,
                 "ack":        ack_data,
                 "all_acked":  all(v is not None for v in to_entry["acks"].values()),
+            }
+        elif msg.topic.startswith("trains/to/") and msg.topic.endswith("/train_rcvd"):
+            # trains/to/{station_id}/train_rcvd
+            parts = msg.topic.split("/")
+            if len(parts) != 4:
+                return
+            seq = payload.get("seq")
+            train = payload.get("train")
+            rr_time = payload.get("rr_time", "?")
+            if seq is None or not train:
+                return
+            to_entry = self._state.record_train_rcvd(seq, train, rr_time)
+            if to_entry is None:
+                return
+            event = {
+                "type":    "to_train_rcvd",
+                "seq":     seq,
+                "train":   train,
+                "rr_time": rr_time,
             }
         else:
             return

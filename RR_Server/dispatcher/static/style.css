@@ -191,12 +191,66 @@ main { padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; }
 }
 
 /* ── OS log panel ────────────────────────────────────────────────── */
+#log-panels {
+    display: grid;
+    grid-template-columns: 1fr 1.6fr;
+    gap: 12px;
+    align-items: start;
+}
+
 #os-panel {
     background: var(--panel);
     border: 1px solid var(--border);
     border-radius: 6px;
     overflow: hidden;
 }
+
+#to-log-panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.to-log-panel-header {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 6px 14px;
+    border-bottom: 1px solid var(--border);
+    background: #1e1e1e;
+}
+
+.to-log-section-header {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 6px 14px 4px;
+    border-bottom: 1px solid var(--border);
+    background: #1a1a1a;
+}
+
+.to-log-section-body {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 10px;
+}
+
+.ack-divider {
+    display: inline-block;
+    width: 1px;
+    height: 14px;
+    background: var(--border);
+    margin: 0 4px;
+    vertical-align: middle;
+}
+
+.train-badge { font-style: normal; }
 
 .os-header {
     display: grid;
@@ -712,35 +766,6 @@ main { padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; }
     margin-left: 8px;
 }
 
-.to-signal-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    margin: 4px 0;
-}
-
-.to-signal-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    padding: 8px 12px;
-    cursor: pointer;
-    user-select: none;
-}
-.to-signal-item input { cursor: pointer; }
-.to-signal-item:not(.to-signal-item-active):hover { border-color: var(--accent); }
-.to-signal-item-active { opacity: 0.55; cursor: default; }
-
-.to-signal-id   { font-family: monospace; font-weight: 700; font-size: 0.9rem; min-width: 32px; }
-.to-signal-name { flex: 1; font-size: 0.88rem; }
-.to-signal-status {
-    font-size: 0.75rem;
-    color: #e07055;
-    font-style: italic;
-}
 
 /* ── Signal arm: hard-blocked ────────────────────────────────────── */
 .arm-btn.blocked { opacity: 0.35; cursor: not-allowed; }

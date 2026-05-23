@@ -50,8 +50,9 @@ class AppState:
         return False
 
     def record_to(self, entry: dict) -> None:
-        """Prepend a newly-issued TO entry with per-station ACK tracking."""
+        """Prepend a newly-issued TO entry with per-station and per-train ACK tracking."""
         entry["acks"] = {sid: None for sid in entry.get("addressed_to", [])}
+        entry["train_acks"] = {t: None for t in entry.get("trains", [])}
         self.to_log.insert(0, entry)
         if len(self.to_log) > TO_LOG_MAX:
             self.to_log = self.to_log[:TO_LOG_MAX]
@@ -61,6 +62,15 @@ class AppState:
         for entry in self.to_log:
             if entry.get("seq") == seq:
                 entry["acks"][station_id] = ack_data
+                return entry
+        return None
+
+    def record_train_rcvd(self, seq: int, train: str, rr_time: str) -> dict | None:
+        """Record per-train receipt; return the TO entry if found, else None."""
+        for entry in self.to_log:
+            if entry.get("seq") == seq:
+                if train in entry.get("train_acks", {}):
+                    entry["train_acks"][train] = rr_time
                 return entry
         return None
 

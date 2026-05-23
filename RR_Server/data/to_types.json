@@ -2,7 +2,7 @@
   "version": "1.1",
   "notes": [
     "TO type registry for the NY&E Northern Lights Subdivision dispatcher UI.",
-    "Types are single-purpose — prototype dispatchers may combine types in one TO, but the NY&E issues one type per order.",
+    "Types are single-purpose \u2014 prototype dispatchers may combine types in one TO, but the NY&E issues one type per order.",
     "Each type defines the fields the dispatcher fills in and the text template the system renders.",
     "addressed_to is always manually selected by the dispatcher from the 7-station list.",
     "Template variables: {field_id} substitutes the field value directly; computed vars are listed under template_vars.",
@@ -33,7 +33,7 @@
           "label": "Direction of Train A",
           "type": "direction",
           "required": true,
-          "help": "Used to verify superiority — does not appear in order text"
+          "help": "Used to verify superiority \u2014 does not appear in order text"
         },
         {
           "id": "train_b_is_extra",
@@ -54,7 +54,9 @@
           "label": "Engine B",
           "type": "engine_number",
           "required": false,
-          "hidden_when": { "train_b_is_extra": true },
+          "hidden_when": {
+            "train_b_is_extra": true
+          },
           "help": "Required for scheduled trains"
         },
         {
@@ -70,14 +72,13 @@
           "required": true
         }
       ],
-      "template": "No. {train_a} Eng {engine_a} take siding at {station_name} and wait for {train_b_ref} {direction_b_word}.",
+      "template": "No. {train_a} Eng {engine_a} take siding at {station_name} and wait for {train_b_ref}.",
       "template_vars": {
         "station_name": "station name looked up from station field",
         "direction_b_word": "North or South derived from direction_b",
-        "train_b_ref": "if train_b_is_extra: 'Extra {train_b} {direction_b_word}' — else: 'No. {train_b} Eng {engine_b}'"
+        "train_b_ref": "if train_b_is_extra: 'Extra {train_b} {direction_b_word}' \u2014 else: 'No. {train_b} Eng {engine_b}'"
       }
     },
-
     "wait": {
       "label": "Wait Order",
       "description": "Direct a train to take a siding and wait until a specified time",
@@ -112,7 +113,6 @@
         "station_name": "station name looked up from station field"
       }
     },
-
     "running_extra": {
       "label": "Running Extra Authorization",
       "description": "Authorize an engine to operate as a running extra train",
@@ -146,7 +146,7 @@
           "label": "Departure Time (RR)",
           "type": "rr_time",
           "required": true,
-          "help": "For schedule generation — goes on the clearance form, not in the order text"
+          "help": "For schedule generation \u2014 goes on the clearance form, not in the order text"
         }
       ],
       "template": "Engine {engine} run extra {direction_word} {from_station_name} to {to_station_name}.",
@@ -157,7 +157,6 @@
       },
       "notes": "departure_rr_time is included in the MQTT payload for schedule generation (trains/extra/{engine}/schedule) but does not appear in order text. The extra schedule is published by RR_Server when this TO is issued."
     },
-
     "work_extra": {
       "label": "Work Extra Authorization",
       "description": "Authorize an engine to perform work between two stations within a time window. All opposing trains receive TOs holding them clear of the section.",
@@ -199,7 +198,6 @@
         "to_station_name": "station name looked up from to_station"
       }
     },
-
     "annulment": {
       "label": "Annulment",
       "description": "Cancel a scheduled train for this session",
@@ -216,23 +214,22 @@
           "label": "From Station",
           "type": "station_id",
           "required": false,
-          "help": "For partial annulment only — leave blank to annul entire run"
+          "help": "For partial annulment only \u2014 leave blank to annul entire run"
         },
         {
           "id": "to_station",
           "label": "To Station",
           "type": "station_id",
           "required": false,
-          "help": "For partial annulment only — leave blank to annul entire run"
+          "help": "For partial annulment only \u2014 leave blank to annul entire run"
         }
       ],
       "template": "No. {train} is annulled{partial_suffix}.",
       "template_vars": {
-        "partial_suffix": "if both from_station and to_station are present: ' {from_station_name} to {to_station_name}' — otherwise empty string"
+        "partial_suffix": "if both from_station and to_station are present: ' {from_station_name} to {to_station_name}' \u2014 otherwise empty string"
       },
       "notes": "Engine number is not required. Annulments are typically issued before or early in a session when the train has not yet assembled. Issuing an annulment triggers a trains/yard/notification type 'annulment' message to the Yardmaster."
     },
-
     "sections": {
       "label": "Train Sections",
       "description": "Authorize a scheduled train to run in multiple sections",
@@ -260,7 +257,7 @@
       ],
       "template": "No. {train} Eng {engine} will run in {section_count} sections.",
       "template_vars": {},
-      "notes": "Addressed to all stations on the train's route. Section numbers for subsequent sections are communicated via consist assignment (Yardmaster terminal) — this TO establishes authority for the full set of sections."
+      "notes": "Addressed to all stations on the train's route. Section numbers for subsequent sections are communicated via consist assignment (Yardmaster terminal) \u2014 this TO establishes authority for the full set of sections."
     }
   }
 }

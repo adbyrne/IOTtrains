@@ -47,7 +47,7 @@ LAYOUT_RULES_FILE  = BASE_DIR / "data" / "layout_rules.json"
 TEMPLATE_DIR = Path(__file__).parent / "templates"
 STATIC_DIR = Path(__file__).parent / "static"
 SUBDIVISION = "NLS"
-DISPATCHER_VERSION = "2.2"
+DISPATCHER_VERSION = "2.3"
 
 _ALL_FORM_LETTERS = set("ABCEFGHJKLMPRSTUVWXYZ")
 _basic_security = HTTPBasic()
@@ -267,6 +267,18 @@ async def signal_arm(request: Request):
         return JSONResponse({"error": "state must be raised or lowered"}, status_code=400)
 
     mqtt_client.publish_signal_arm(station_id, direction, arm_state)
+
+    # Optimistic update — reflect the command in state immediately so the UI
+    # updates now; the firmware's state-topic echo will override this if it
+    # reports a different value when it reconnects.
+    state.to_signals.setdefault(station_id, {})[direction] = arm_state
+    await state.broadcast({
+        "type": "to_signal_update",
+        "station_id": station_id,
+        "direction": direction,
+        "state": arm_state,
+    })
+
     return JSONResponse({"ok": True})
 
 

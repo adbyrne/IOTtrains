@@ -64,6 +64,7 @@ function connect() {
             case 'os_report':        handleOsReport(event);        break;
             case 'to_issued':        handleToIssued(event);        break;
             case 'to_ack':           handleToAck(event);           break;
+            case 'to_train_rcvd':   handleToTrainRcvd(event);     break;
         }
     };
 
@@ -95,6 +96,7 @@ function handleInitialState(event) {
         for (const [dir, sigState] of Object.entries(arms))
             updateToSignal(sid, dir, sigState);
     rebuildOsLog(event.os_log || []);
+    refreshToLog();
     populateToTypeSelect();
     populateToStationChecks();
     populateFormSelect();
@@ -116,15 +118,24 @@ function handleToSignalUpdate(event) {
 
 function handleToIssued(event) {
     toLogData.unshift(event.to);
-    refreshToLogModal();
+    refreshToLog();
     updateAllSignalArms();
 }
 
 function handleToAck(event) {
     const entry = toLogData.find(e => e.seq === event.seq);
     if (entry) entry.acks[event.station_id] = event.ack;
-    refreshToLogModal();
+    refreshToLog();
     updateAllSignalArms();
+}
+
+function handleToTrainRcvd(event) {
+    const entry = toLogData.find(e => e.seq === event.seq);
+    if (entry) {
+        if (!entry.train_acks) entry.train_acks = {};
+        entry.train_acks[event.train] = event.rr_time;
+    }
+    refreshToLog();
 }
 
 // ── Clock display ────────────────────────────────────────────────────────────
@@ -411,33 +422,15 @@ function initControls() {
         clockCmd('set', { hour: h, minute: m, day: d });
     };
 
-    document.getElementById('btn-to-issue').onclick = () => openToModal();
-    document.getElementById('btn-to-issue-close').onclick = () => closeToModal();
-    document.getElementById('btn-to-log').onclick   = () => openToLogModal();
-    document.getElementById('btn-to-log-close').onclick   = () => closeToLogModal();
+    document.getElementById('btn-to-issue').onclick = () => openToFormModal();
+    document.getElementById('btn-to-form-close').onclick = () => closeToFormModal();
     document.getElementById('btn-to-submit').onclick = () => submitToOrder();
     document.getElementById('to-form-select').onchange = () =>
         validateToForm(document.getElementById('to-type-select').value);
 
-    document.getElementById('btn-to-continue').onclick = () => {
-        const selected = [...document.querySelectorAll('#to-signal-select input:checked')]
-                          .map(el => el.value);
-        advanceToStep2(selected);
-    };
-    document.getElementById('btn-to-skip').onclick = () => advanceToStep2([]);
-    document.getElementById('btn-to-back').onclick = () => {
-        document.getElementById('to-step-1-body').hidden = false;
-        document.getElementById('to-step-2-body').hidden = true;
-        document.getElementById('to-step-badge').textContent = 'Step 1 of 2 — Signals';
-        buildSignalStationList();
-    };
-
-    // Close modals on overlay click
-    document.getElementById('modal-to-issue').addEventListener('click', e => {
-        if (e.target === e.currentTarget) closeToModal();
-    });
-    document.getElementById('modal-to-log').addEventListener('click', e => {
-        if (e.target === e.currentTarget) closeToLogModal();
+    // Close modal on overlay click
+    document.getElementById('modal-to-form').addEventListener('click', e => {
+        if (e.target === e.currentTarget) closeToFormModal();
     });
 }
 
@@ -709,85 +702,41 @@ async function submitToOrder() {
         });
         const body = await r.json();
         if (!r.ok) { errEl.textContent = body.error || 'Error'; return; }
-        closeToModal();
+        closeToFormModal();
     } catch {
         errEl.textContent = 'Request failed';
     }
 }
 
-function openToModal() {
-    // Show Step 1
-    document.getElementById('to-step-1-body').hidden = false;
-    document.getElementById('to-step-2-body').hidden = true;
-    document.getElementById('to-step-badge').textContent = 'Step 1 of 2 — Signals';
-    buildSignalStationList();
-    document.getElementById('modal-to-issue').hidden = false;
-}
-
-function closeToModal() {
-    document.getElementById('modal-to-issue').hidden = true;
-}
-
-function buildSignalStationList() {
-    const container = document.getElementById('to-signal-select');
-    container.innerHTML = '';
-    if (toSignalStations.size === 0) {
-        container.innerHTML = '<em class="muted">No signal stations configured.</em>';
-        return;
-    }
-    for (const sid of toSignalStations) {
-        const states  = _signalStates[sid] || {};
-        const isActive = Object.values(states).some(s => s === 'lowered');
-        const outstanding = outstandingTosForStation(sid);
-        const item = document.createElement('label');
-        item.className = 'to-signal-item' + (isActive ? ' to-signal-item-active' : '');
-        item.innerHTML =
-            `<input type="checkbox" value="${sid}"${isActive ? ' disabled' : ''}>` +
-            `<span class="to-signal-id">${sid}</span>` +
-            `<span class="to-signal-name">${stationNames[sid] || sid}</span>` +
-            (isActive
-                ? `<span class="to-signal-status">${outstanding.length} outstanding order${outstanding.length !== 1 ? 's' : ''}</span>`
-                : '');
-        container.appendChild(item);
-    }
-}
-
-async function advanceToStep2(preSelected) {
-    // Lower arms for selected signal stations
-    const lowerCmds = [];
-    for (const sid of preSelected) {
-        lowerCmds.push(signalArmCmd(sid, 'N', 'lowered'));
-        lowerCmds.push(signalArmCmd(sid, 'S', 'lowered'));
-    }
-    await Promise.all(lowerCmds);
-
-    // Switch to Step 2
-    document.getElementById('to-step-1-body').hidden = true;
-    document.getElementById('to-step-2-body').hidden = false;
-    document.getElementById('to-step-badge').textContent = 'Step 2 of 2 — Order';
-
-    // Pre-select addressed_to from the stations we just raised signals for
-    document.querySelectorAll('#to-stations input').forEach(el => {
-        const checked = preSelected.includes(el.value);
-        el.checked = checked;
-        el.closest('.station-check-item').classList.toggle('checked', checked);
-    });
-
-    // Reset form state
+function openToFormModal() {
+    // Reset form to clean state
     document.getElementById('to-form-select').value = '';
     document.getElementById('to-issue-err').textContent = '';
+    document.querySelectorAll('#to-stations input').forEach(el => {
+        el.checked = false;
+        el.closest('.station-check-item').classList.remove('checked');
+    });
     const sel = document.getElementById('to-type-select');
     if (sel.options.length > 0) { buildToFields(sel.value); updateToPreview(); }
-    validateToForm(document.getElementById('to-type-select').value);
+    validateToForm(sel.value);
+    document.getElementById('modal-to-form').hidden = false;
 }
 
-// ── TO Log modal ──────────────────────────────────────────────────────────────
+function closeToFormModal() {
+    document.getElementById('modal-to-form').hidden = true;
+}
+
+// ── TO Log (inline panel) ─────────────────────────────────────────────────────
 
 function toLogEntryHtml(entry) {
     const typeDef = (toTypes.to_types || {})[entry.to_type] || {};
     const text = renderToText(entry.to_type, entry.fields || {});
-    const ackBadges = Object.entries(entry.acks || {}).map(([sid, ack]) =>
-        `<span class="ack-badge ${ack ? 'received' : 'pending'}" title="${ack ? `ACK ${ack.rr_time}` : 'Pending'}">${sid}</span>`
+    const trainAcks = entry.train_acks || {};
+    const trainBadges = Object.entries(trainAcks).map(([train, rcvd]) =>
+        `<span class="ack-badge train-badge ${rcvd ? 'received' : 'pending'}" title="${rcvd ? `Rcvd ${rcvd}` : 'Pending'}">No. ${train}</span>`
+    ).join('');
+    const stationBadges = Object.entries(entry.acks || {}).map(([sid, ack]) =>
+        `<span class="ack-badge ${ack ? 'received' : 'pending'}" title="${ack ? `Station ACK ${ack.rr_time}` : 'Pending'}">${sid}</span>`
     ).join('');
     return `<div class="to-log-entry">
         <div class="to-log-header">
@@ -796,7 +745,7 @@ function toLogEntryHtml(entry) {
             <span class="to-log-time">${fmtRrTime(entry.issued_rr_time)}</span>
         </div>
         <div class="to-log-text">${escHtml(text)}</div>
-        <div class="to-log-acks">${ackBadges}</div>
+        <div class="to-log-acks">${trainBadges}${stationBadges ? `<span class="ack-divider"></span>${stationBadges}` : ''}</div>
     </div>`;
 }
 
@@ -805,34 +754,19 @@ function isToFullyAcked(to) {
            to.addressed_to.every(sid => to.acks && to.acks[sid]);
 }
 
-function refreshToLogModal() {
+function refreshToLog() {
     const container = document.getElementById('to-log-list');
     if (toLogData.length === 0) {
-        container.innerHTML = '<em class="muted">No orders issued yet.</em>';
+        container.innerHTML = '<em class="muted">No orders issued.</em>';
         return;
     }
-    const outstanding   = toLogData.filter(to => !isToFullyAcked(to));
-    const acknowledged  = toLogData.filter(to =>  isToFullyAcked(to));
+    const outstanding  = toLogData.filter(to => !isToFullyAcked(to));
+    const acknowledged = toLogData.filter(to =>  isToFullyAcked(to));
     container.innerHTML =
-        `<div class="to-log-columns">` +
-            `<div class="to-log-col">` +
-                `<div class="to-log-col-header">Outstanding (${outstanding.length})</div>` +
-                `<div class="to-log-col-body">${outstanding.length ? outstanding.map(toLogEntryHtml).join('') : '<em class="muted">None</em>'}</div>` +
-            `</div>` +
-            `<div class="to-log-col">` +
-                `<div class="to-log-col-header">Acknowledged (${acknowledged.length})</div>` +
-                `<div class="to-log-col-body">${acknowledged.length ? acknowledged.map(toLogEntryHtml).join('') : '<em class="muted">None</em>'}</div>` +
-            `</div>` +
-        `</div>`;
-}
-
-function openToLogModal() {
-    refreshToLogModal();
-    document.getElementById('modal-to-log').hidden = false;
-}
-
-function closeToLogModal() {
-    document.getElementById('modal-to-log').hidden = true;
+        `<div class="to-log-section-header">Outstanding (${outstanding.length})</div>` +
+        `<div class="to-log-section-body">${outstanding.length ? outstanding.map(toLogEntryHtml).join('') : '<em class="muted">None</em>'}</div>` +
+        (acknowledged.length ? `<div class="to-log-section-header">Acknowledged (${acknowledged.length})</div>
+        <div class="to-log-section-body">${acknowledged.map(toLogEntryHtml).join('')}</div>` : '');
 }
 
 // ── Utility ──────────────────────────────────────────────────────────────────

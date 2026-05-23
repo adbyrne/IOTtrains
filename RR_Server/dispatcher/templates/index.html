@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>NY&amp;E Dispatcher</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/style.css?v={{ version }}">
 </head>
 <body>
 
@@ -81,45 +81,38 @@
     <!-- Train Order action bar -->
     <div id="to-bar">
         <button id="btn-to-issue" class="btn primary">Issue Train Order</button>
-        <button id="btn-to-log"   class="btn">TO Log</button>
         <a href="/manage" class="manage-link">Manage</a>
     </div>
 
-    <!-- OS log panel -->
-    <div id="os-panel">
-        <div class="os-header">
-            <span class="os-header-cell os-col-time">RR Time</span>
-            <span class="os-header-cell os-col-sta">Station</span>
-            <span class="os-header-cell os-col-train">Train</span>
+    <!-- OS log + TO log side by side -->
+    <div id="log-panels">
+        <div id="os-panel">
+            <div class="os-header">
+                <span class="os-header-cell os-col-time">RR Time</span>
+                <span class="os-header-cell os-col-sta">Station</span>
+                <span class="os-header-cell os-col-train">Train</span>
+            </div>
+            <div id="os-log"></div>
         </div>
-        <div id="os-log"></div>
+
+        <div id="to-log-panel">
+            <div class="to-log-panel-header">Train Orders</div>
+            <div id="to-log-list"><em class="muted">No orders issued.</em></div>
+        </div>
     </div>
 
     <div id="status-bar">Connecting…</div>
 
 </main>
 
-<!-- ── Issue Train Order modal ─────────────────────────────────────────── -->
-<div id="modal-to-issue" class="modal-overlay" hidden>
+<!-- ── Issue Train Order dialog ─────────────────────────────────────────── -->
+<div id="modal-to-form" class="modal-overlay" hidden>
     <div class="modal">
         <div class="modal-header">
             <span>Issue Train Order</span>
-            <span id="to-step-badge" class="to-step-badge">Step 1 of 2 — Signals</span>
-            <button class="modal-close" id="btn-to-issue-close">&times;</button>
+            <button class="modal-close" id="btn-to-form-close">&times;</button>
         </div>
-
-        <!-- Step 1: Signal activation -->
-        <div id="to-step-1-body" class="modal-body">
-            <p class="hint">Lower signal arms to stop trains at the selected stations. Stations with arms already down have an outstanding order and cannot be reselected.</p>
-            <div id="to-signal-select" class="to-signal-grid"></div>
-            <div class="form-actions">
-                <button id="btn-to-continue" class="btn primary">Continue →</button>
-                <button id="btn-to-skip" class="btn">No signals needed →</button>
-            </div>
-        </div>
-
-        <!-- Step 2: TO form -->
-        <div id="to-step-2-body" class="modal-body" hidden>
+        <div class="modal-body">
             <div class="form-row">
                 <label for="to-form-select">Form</label>
                 <select id="to-form-select">
@@ -137,7 +130,6 @@
             </div>
             <div id="to-preview" class="to-preview"></div>
             <div class="form-actions">
-                <button id="btn-to-back" class="btn">← Back</button>
                 <button id="btn-to-submit" class="btn primary" disabled>Issue</button>
                 <span id="to-issue-err" class="form-err"></span>
             </div>
@@ -145,19 +137,7 @@
     </div>
 </div>
 
-<!-- ── TO Log modal ─────────────────────────────────────────────────────── -->
-<div id="modal-to-log" class="modal-overlay" hidden>
-    <div class="modal modal-wide">
-        <div class="modal-header">
-            <span>Train Orders Issued — This Session</span>
-            <button class="modal-close" id="btn-to-log-close">&times;</button>
-        </div>
-        <div class="modal-body">
-            <div id="to-log-list"><em class="muted">No orders issued yet.</em></div>
-        </div>
-    </div>
-</div>
 
-<script src="/static/dispatcher.js"></script>
+<script src="/static/dispatcher.js?v={{ version }}"></script>
 </body>
 </html>
