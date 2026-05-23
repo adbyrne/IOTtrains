@@ -1,7 +1,7 @@
 # NY&E Layout Control System — Implementation Plan
 
-**Version:** 2.2
-**Date:** 2026-05-19
+**Version:** 2.3
+**Date:** 2026-05-23
 **Status:** Active
 
 ---
@@ -95,23 +95,12 @@
   - **Next-station screen is always shown** after OS (with or without a TO) — gives the agent the timetable entry for the train's next stop before returning to clock. Needs timetable data already in LittleFS (schedule.json has the data; lookup logic TBD in Session 2.1).
   - **Clearance flow** (Session 2.3) — same touch-triggered pattern; clearance screen activates from OS screen or directly from clock if a clearance is pending for this station.
 
-- **CYD I2C / peripheral design question — discuss next session before any 2.x implementation:**
-  The CYD (ESP32-2432S028R) has **three external connectors** (CN1 I2C, CN2, CN3 — exact pin assignments to confirm against physical board) and one USB port. I2C is a bus — one connector port can chain multiple devices (PCA9685 + ESP32 slave + sensors on the same two wires). Candidate uses and questions to resolve:
+- **CYD I2C / peripheral design — RESOLVED (2026-05-23):**
+  The CYD (ESP32-2432S028R) CN1 expansion connector provides I2C on **IO27 (SDA) and IO22 (SCL)**. GPIO21 is the **TFT backlight control pin** (`TFT_BL` in `User_Setup.h`) — it must never be used as SDA; bare `Wire.begin()` defaults SDA=21 and will dim the display while appearing to function.
 
-  **I2C bus candidates:**
-  - **PCA9685** (16-ch PWM): station lighting (platform lamps, building interiors, signals) and/or TO signal arm servos. Note: servos need ~50 Hz; LEDs tolerate higher frequencies — may need separate PCA9685 chips for each, or accept 50 Hz for LEDs (dim but workable).
-  - **TO_Signal ESP32 as I2C slave**: instead of WiFi/MQTT, the CYD commands the TO Signal box directly over a short I2C wire. Reduces RF dependency for a local connection but adds a physical cable between CYD and signal mast.
-  - **Other I2C devices**: environmental sensors, RTC backup, I/O expanders — TBD.
+  **Decision:** PCA9685 (16-ch PWM) via CN1 drives the TO signal arm servos at each CYD station. `Wire.begin(27, 22)` is always called explicitly. TO_Signal standalone ESP32 firmware is **superseded** for all CYD-equipped stations — the CYD + PCA9685 combination replaces it. The PCA9685 silently disables itself at boot if not detected (I2C scan at 0x40), so identical firmware runs at WP/HC (no signal arms) without modification.
 
-  **Physical constraint — only 3 external connectors:**
-  - Everything external to the CYD must share these ports (I2C bus, power, any UART/GPIO needs).
-  - I2C bus chaining partially solves this — multiple devices per port — but connector type and power budget must be checked.
-  - Connector pinout (especially whether CN1 conflicts with TFT backlight on GPIO 21) must be verified against the physical board before committing to any wiring plan.
-
-  **Architecture impact:**
-  - If CYD + PCA9685 absorbs TO signal servo control, the TO_Signal ESP32 boxes may not be needed per station (significant BOM reduction).
-  - If TO_Signal ESP32 stays but moves to I2C slave mode, its WiFi/MQTT stack is no longer needed — simplifies that firmware considerably.
-  - Decision affects Session 2.1 scope and all subsequent CYD hardware design.
+  **Implemented in Session 2.5 (Station_OS v2.3.0).**
 
 ### Session 1.6 — Provisioning Script _(planning session required first)_
 - A `provision/` directory containing a single `provision.sh` entry point and a `layout_config.sh` variable file
@@ -189,8 +178,20 @@ _TO type definitions planning complete (2026-05-19) — `data/to_types.json` v1.
 - `TO_Signal/src/main.cpp`: 2 servos (N=GPIO 13, S=GPIO 14), smooth sweep + mechanical bounce, serial CLI calibration, rr_time tracking, NVS config
 - Per-unit servo angles stored independently in NVS (N raised/lowered, S raised/lowered) — calibrated via serial CLI on each unit
 - LWT/heartbeat deferred to later phase (not needed for MVP operation)
-- **Test broker:** layout RPi5 — requires Session 1.1 before bench testing
-- **Completion criteria (pending):** Dispatcher raises/lowers signal arms from web UI; arms respond and report state — integration test after Sessions 1.1–1.3
+- **Superseded for CYD stations by Station_OS v2.3.0** — PCA9685 on CN1 (IO27/IO22) drives servos directly from the CYD. TO_Signal standalone firmware remains the reference design for any non-CYD location; no changes needed.
+- **Completion:** Dispatcher raises/lowers signal arms from web UI; arms respond and report state — integration confirmed in Session 2.5.
+
+### Session 2.5 — PCA9685 Signal Arm Integration ✅ COMPLETE (2026-05-23)
+- **Station_OS v2.3.0:** PCA9685 (Adafruit_PWMServoDriver) added over I2C — CN1 connector (IO27=SDA, IO22=SCL). GPIO21 is TFT backlight; `Wire.begin(27, 22)` always called explicitly.
+- N arm = PCA9685 channel 0, S arm = channel 1 — hardcoded; field cables swapped to reverse sense if needed.
+- Servo angles (raised/lowered, per arm) stored in NVS: keys `sig_nr`, `sig_nl`, `sig_sr`, `sig_sl`; default 45°/90°.
+- PCA9685 silently disabled if not detected at I2C scan (0x40) — same firmware runs at WP/HC without arms.
+- FreeRTOS `signalTask` owns all PCA9685 writes; smooth degree-by-degree sweep at 15 ms/step + mechanical bounce simulation.
+- Serial CLI extended: `signal set/sweep/raise/lower/show/save` — bench-calibrate without reflashing.
+- MQTT: subscribes to `trains/signal/{id}/to/{N|S}/cmd` (retained QoS1); publishes `trains/signal/{id}/to/{N|S}/state` (retained QoS1).
+- **Dispatcher v2.3:** TO issuance modal reduced to single step (signal step removed); independent arm controls remain in station table.
+- `platformio.ini`: `adafruit/Adafruit PWM Servo Driver Library@^3.0.0` added.
+- **Completion:** bench-tested with BB CYD + PCA9685 + two servos. Dispatcher → MQTT → CYD → PCA9685 → servo confirmed working. ✓
 
 ### Future — Bad Order Reporting (Yardmaster Page)
 _Scope defined; session number TBD. Design details required before implementation._
@@ -267,7 +268,7 @@ Yardmaster-only data. Separate from `timetable.json`. Contains:
 | Item | Qty | When |
 |------|-----|------|
 | CYD fascia enclosure | 7 | Deferred — after implementation and testing complete |
-| TO Signal ESP32 enclosure | 5 | Alongside Session 2.4 |
+| ~~TO Signal ESP32 enclosure~~ | ~~5~~ | **Not needed** — PCA9685 drives servos from the CYD (Station_OS v2.3.0). No standalone TO_Signal ESP32 box required per station. |
 | Yardmaster terminal mount | 1 | RPi3 + 7" screen enclosure; before Session 2.0 |
 | RPi5 / PR3 server mount | 1 | Any time after Session 1.1 |
 
@@ -335,3 +336,4 @@ Yardmaster-only data. Separate from `timetable.json`. Contains:
 | 2.0 | 2026-05-18 | Session 2.1 complete. Station_OS: screen state machine (CLOCK→OS_ENTRY→NEXT_STATION→CLOCK), 4×4 keypad, full schedule load, next-station lookup, OS publish. Dispatcher: trains/os/+ subscription, os_log AppState field, OS log panel (green flash on new entry), initial_state includes os_log. 31 tests, firmware builds clean (42.2% flash, 19.3% RAM). |
 | 2.1 | 2026-05-19 | TO type definitions planning complete. `data/to_types.json` v1.0 created with 6 types. Session 2.2 description updated. SYSTEM_ARCHITECTURE.md v1.2 and MQTT_SPEC.md v0.6 updated to reference to_types.json and remove stale freeform references. |
 | 2.2 | 2026-05-19 | Session 2.2 implementation plan finalised. Design decisions: structured payload (no pre-rendered text), dispatcher-manual signal arm control, TO queue with auto-show-next, form 19/31 descriptions corrected. MQTT_SPEC.md v0.7. |
+| 2.3 | 2026-05-23 | Session 2.5 complete. Station_OS v2.3.0: PCA9685 signal arm control via CN1 I2C (IO27/IO22). CYD I2C design question resolved (GPIO21=backlight). Dispatcher v2.3: TO issuance single-step (signal step removed). TO_Signal ESP32 enclosure cancelled — not needed. |

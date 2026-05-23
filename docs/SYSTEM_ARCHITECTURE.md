@@ -1,7 +1,7 @@
 # NY&E Northern Lights Subdivision — Layout Control System Architecture
 
-**Version:** 1.2
-**Date:** 2026-05-19
+**Version:** 1.3
+**Date:** 2026-05-23
 **Era:** circa 1905 — timetable and train order operations
 
 ---
@@ -66,7 +66,12 @@ Single RPi5 hosts all server-side software and acts as the WiFi AP.
 One per station, fascia-mounted.
 
 **Station unit provisioning (NVS):**
-Each unit is provisioned once via USB serial before installation. Parameters: `station_id`, `wifi_ssid`, `wifi_password`, `mqtt_host`, `mqtt_port`, `mqtt_user`, `mqtt_pass`. Provisioning workflow and tooling TBD — dedicated session needed.
+Each unit is provisioned once via USB serial before installation. Parameters: `station_id`, `wifi_ssid`, `wifi_password`, `mqtt_host`, `mqtt_port`, `mqtt_user`, `mqtt_pass`. Signal arm angles (`sig_nr`, `sig_nl`, `sig_sr`, `sig_sl`) are calibrated per unit via the `signal` CLI commands and saved to NVS. Provisioning workflow and tooling TBD — dedicated session needed.
+
+**CYD hardware — I2C and peripherals:**
+- **GPIO 21 = TFT backlight** (`TFT_BL`). This pin must never be used for I2C. Always call `Wire.begin(27, 22)` explicitly — bare `Wire.begin()` defaults SDA=21 and will dim the display.
+- **CN1 expansion connector:** IO27 = SDA, IO22 = SCL. I2C bus; chains multiple devices (PCA9685, sensors, etc.).
+- **PCA9685 (0x40):** 16-channel PWM driver connected via CN1. Controls the two TO signal arm servos at stations with signal arms. Channel 0 = N arm, Channel 1 = S arm. If PCA9685 is not detected at boot (I2C scan), signal control is silently disabled — same firmware runs at WP and HC without modification.
 
 **The dispatcher is a remote user** (separate room) operating the RPi5 web app. The WP station CYD is a standard fascia unit at Williamsport, not a dispatcher interface.
 
@@ -89,15 +94,17 @@ _* Clearance issued when a train originates at this station (e.g. southbound ret
 4. **Clearance** — clearance form text display, ACK button (all stations; visible when a clearance is active)
 5. **Status** — WiFi/MQTT connection info, firmware version
 
-### 3.3 TO Signal Controllers — ESP32 ×5
+### 3.3 TO Signal Controllers — PCA9685 via CYD (Station_OS v2.3.0)
 
-One per TO-signal station (XP, BB, JC, MC, SK). Each station's signal has **two arms** — one for northbound trains, one for southbound — controlled independently. The dispatcher raises the N or S arm based on which direction a train order applies to.
+Each TO-signal station (XP, BB, JC, MC, SK) has **two arms** — one northbound, one southbound — controlled independently by the dispatcher.
 
-Each controller drives two servos (one per arm) from a single ESP32. MQTT topics are direction-specific: `trains/signal/{id}/to/N/cmd` and `trains/signal/{id}/to/S/cmd`.
+**As of Station_OS v2.3.0, servo control is handled by the station CYD unit directly.** A PCA9685 16-channel PWM driver is connected to each CYD via the CN1 I2C connector (IO27=SDA, IO22=SCL). Channel 0 = N arm, Channel 1 = S arm. No separate TO_Signal ESP32 is required per station.
 
-The existing TrainOrderServo bracket (`CADlayout/Servo/`) is already designed for two arms and two servos. No new CAD design needed for the signal mechanism.
+MQTT topics are unchanged: `trains/signal/{id}/to/{N|S}/cmd` (sub, retained QoS1) and `trains/signal/{id}/to/{N|S}/state` (pub, retained QoS1).
 
-Reuses Switch_Control connection/reconnect pattern. Simple dedicated firmware (`TO_Signal` project).
+The TrainOrderServo bracket (`CADlayout/Servo/`) mounts the two servos at the signal mast. Servo power is a separate supply; only the PWM signal comes from the PCA9685.
+
+The standalone `TO_Signal` ESP32 firmware remains available as a reference design for any non-CYD installation, but is not deployed at stations with CYD units.
 
 ### 3.4 Turnout Controllers — ESP32 (Switch_Control, existing)
 
@@ -124,8 +131,7 @@ RPi5 — 192.168.10.1
   ├── Dispatcher web app :5000
   │
   └── WiFi clients (DHCP):
-      ├── Station units (CYD) ×7         → MQTT pub/sub
-      ├── TO Signal controllers ×5        → MQTT sub/pub
+      ├── Station units (CYD + PCA9685) ×7 → MQTT pub/sub (incl. TO signal arms)
       ├── Turnout controllers ×N          → MQTT pub/sub
       └── Station cameras (ESP32-CAM) ×7 → HTTP MJPEG + MQTT pub
 
@@ -250,7 +256,7 @@ IoT components are bare PCBs and need enclosures or mounts for layout installati
 | Item | Qty | Notes |
 |------|-----|-------|
 | CYD fascia enclosure | 7 | Bezel + box for ESP32-2432S028R; panel-mounts on fascia at each station |
-| TO Signal ESP32 enclosure | 5 | Housing for bare ESP32 near TrainOrderServo mechanism (XP, BB, JC, MC, SK) |
+| ~~TO Signal ESP32 enclosure~~ | ~~5~~ | **Cancelled** — PCA9685 controlled by Station_OS v2.3.0; no separate ESP32 box needed |
 | ESP32-CAM mount | 7 | Camera bracket aimed at station scene; angle varies per location (Phase 3) |
 | RPi5 / PR3 server mount | 1 | Rack shelf or enclosure for central server hardware |
 

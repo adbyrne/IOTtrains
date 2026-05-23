@@ -1,5 +1,7 @@
 # TO_Signal — Train Order Signal Controller Firmware
 
+> **Superseded for CYD stations (2026-05-23):** As of Station_OS v2.3.0, TO signal arm servos are driven by the station CYD unit via a PCA9685 on the CN1 I2C connector (IO27=SDA, IO22=SCL). No separate TO_Signal ESP32 is deployed at stations with CYD units. This firmware remains the reference design for any non-CYD installation.
+
 ESP32 firmware controlling two TO signal arms (N=northbound, S=southbound) per station.
 Each arm is driven by a dedicated servo; arms are commanded independently by the dispatcher.
 
