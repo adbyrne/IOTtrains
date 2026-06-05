@@ -10,7 +10,7 @@ Each arm is driven by a dedicated servo; arms are commanded independently by the
 - **MCU:** ESP32 bare dev board
 - **Servo N (northbound arm):** GPIO 13
 - **Servo S (southbound arm):** GPIO 14
-- **Physical design:** `CADtrains/TrainOrderServo/` — two-servo bracket with Bowden cable linkage
+- **Physical design:** `CADlayout/Servo/` — two-servo bracket with Bowden cable linkage
 
 ## TO-Signal Stations
 
