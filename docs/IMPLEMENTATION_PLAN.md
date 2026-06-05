@@ -119,17 +119,36 @@
 
 ## Phase 2 — Operations
 
-### Session 2.0 — WP Yardmaster Page
-Scoping complete (2026-05-02). **Hardware needed before this session:** RPi3 + HDMI touchscreen display (ELECROW 7" IPS 1024×600 pk=106 or 5" TN 800×480 pk=107 — in stock, size TBD).
+### Session 2.0 — WP Yardmaster Terminal _(design complete 2026-06-05)_
 
-- FastAPI `/yard` route — optimized for RPi3 7" touchscreen in Chromium kiosk mode
-- NLS arrival notifications from Dispatcher (via `trains/yard/notification`)
-- NLS departure lineup (from timetable + dispatcher adjustments)
-- C&O schedule display (read-only reference — interchange and main-clear planning)
-- Consist report form: train #, engine #, caboose #, loaded cars, empty cars (editable before submit)
-- Ready flag combined with consist submission — formal signal to Dispatcher
-- MQTT: publishes `trains/yard/consist`; subscribes to `trains/yard/notification`
-- **Completion:** Yardmaster can view lineup, receive Dispatcher notifications, submit consist + ready
+**Full design:** `docs/YARDMASTER_DESIGN.md`
+
+**Hardware:** RPi3 (RPi3-1 or RPi3-3) + ELECROW 7" IPS 1024×600 HDMI touchscreen (pk=106). Chromium kiosk mode → `http://192.168.10.1:5000/yard`. Touch-only, no keyboard.
+
+**Pre-session prerequisites (content tasks — do before implementation):**
+- [ ] WP yard track IDs extracted from XTrkCAD layout file → populate `yard.json`
+- [ ] C&O timetable data populated in `timetable.json` COE subdivision (from `NYELayoutDocs/alt/timetable.ods` Sheet2)
+
+**Scope — Session 2.0a (backend):**
+- `RR_Server/data/yard.json` — track definitions with XTrkCAD IDs and function designations
+- `AppState` additions: `consists` dict, `yard_notifications` list, `yard_tracks` list
+- MQTT: subscribe `trains/yard/consist/+` (retained); publish `trains/yard/notification`, `trains/yard/consist/{train}`
+- New API: `GET /yard`, `POST /api/yard/consist`, `POST /api/yard/notification`, `POST /api/yard/extra_request`
+- WebSocket events: `consist_update`, `yard_notification`, `extra_request`; `initial_state` extended with yard data + C&O trains
+- `tests/test_yard.py` — 13 tests covering all endpoints and WS events
+
+**Scope — Session 2.0b (UI + RPi3):**
+- `yard.html` + `yard.js` — 1024×600 touchscreen page: departing trains panel, track board, arriving trains panel, C&O footer
+- Consist build modals: scheduled (single-stage) + extra (two-stage: car block → engine/caboose)
+- Extra request modal (YM-initiated extra request to dispatcher)
+- Dispatcher page: "Notify YM" button + modal; extra request alert banner; optional yard status read-only view
+- RPi3 provisioning: OS flash, Chromium kiosk autostart, NYE_Layout WiFi, DHCP reservation on RPi5
+
+**Consist lifecycle (new `car_block_ready` state for extras):**
+- Scheduled: `assembling` → `ready` → `cleared`
+- Extra: `assembling` → `car_block_ready` → `ready` → `cleared`
+
+**Completion:** Yardmaster can receive arrival alerts, build scheduled consists (single-stage) and extra consists (two-stage), assign yard tracks, request extras; Dispatcher can send YM notifications and see extra requests; C&O schedule visible in footer.
 
 ### Session 2.1 — OS Submission ✅ COMPLETE (2026-05-18)
 - **Station_OS:** full screen state machine (CLOCK → OS_ENTRY → NEXT_STATION → CLOCK)
@@ -337,3 +356,4 @@ Yardmaster-only data. Separate from `timetable.json`. Contains:
 | 2.1 | 2026-05-19 | TO type definitions planning complete. `data/to_types.json` v1.0 created with 6 types. Session 2.2 description updated. SYSTEM_ARCHITECTURE.md v1.2 and MQTT_SPEC.md v0.6 updated to reference to_types.json and remove stale freeform references. |
 | 2.2 | 2026-05-19 | Session 2.2 implementation plan finalised. Design decisions: structured payload (no pre-rendered text), dispatcher-manual signal arm control, TO queue with auto-show-next, form 19/31 descriptions corrected. MQTT_SPEC.md v0.7. |
 | 2.3 | 2026-05-23 | Session 2.5 complete. Station_OS v2.3.0: PCA9685 signal arm control via CN1 I2C (IO27/IO22). CYD I2C design question resolved (GPIO21=backlight). Dispatcher v2.3: TO issuance single-step (signal step removed). TO_Signal ESP32 enclosure cancelled — not needed. |
+| 2.4 | 2026-06-05 | Session 2.0 design complete. Full yardmaster terminal design in docs/YARDMASTER_DESIGN.md. Consists: two-stage extra train workflow, car_block_ready state. C&O as YM-only domain. MQTT_SPEC.md v0.8. Session 2.0 expanded to 2.0a (backend) + 2.0b (UI + RPi3). 15 open questions and considerations documented. |

@@ -1,7 +1,7 @@
 # NY&E Layout Control System — MQTT Topic Specification
 
-**Version:** 0.7
-**Date:** 2026-05-19
+**Version:** 0.8
+**Date:** 2026-06-05
 **Broker:** Mosquitto on RPi5 at `192.168.10.1:1883`
 
 ---
@@ -315,7 +315,7 @@ Communication between the Dispatcher web app and the Yardmaster terminal (RPi3 +
 
 Per-train retained topic. `{train_number}` is the scheduled train number (e.g. `3`, `101`) or the engine number for extras (e.g. `42`). Retained so the server and yardmaster terminal can recover full consist state after a restart.
 
-The `state` field tracks the consist lifecycle. The yardmaster publishes `assembling` and `ready` states; the RR_Server automatically publishes `cleared` when the dispatcher issues a WP departure clearance for that train.
+The `state` field tracks the consist lifecycle. The yardmaster publishes `assembling`, `car_block_ready`, and `ready` states; the RR_Server automatically publishes `cleared` when the dispatcher issues a WP departure clearance for that train. `car_block_ready` applies to extra trains only — freight cars are assembled on a track but engine and caboose are not yet assigned (pending departure time from dispatcher).
 
 **Assembling / ready (yardmaster publishes):**
 ```json
@@ -328,12 +328,32 @@ The `state` field tracks the consist lifecycle. The yardmaster publishes `assemb
   "cars_loaded": 12,
   "cars_empty": 5,
   "cars_total": 17,
+  "track_id": "T1",
   "rr_time": "10:30",
   "day": 1
 }
 ```
 
 **Ready:** same payload with `"state": "ready"`.
+
+**Car block ready (extra trains only — yardmaster publishes after assembling freight cars, before engine/caboose assigned):**
+```json
+{
+  "train": "42",
+  "state": "car_block_ready",
+  "extra": true,
+  "engine": null,
+  "caboose": null,
+  "cars_loaded": 8,
+  "cars_empty": 3,
+  "cars_total": 11,
+  "track_id": "T3",
+  "rr_time": "10:15",
+  "day": 1
+}
+```
+
+After the dispatcher sets a departure time (`departure_time_set` notification), the yardmaster assigns engine and caboose and publishes `state: "ready"` with full consist fields.
 
 **Cleared (RR_Server publishes on WP departure clearance):**
 ```json
@@ -356,7 +376,8 @@ Engine and caboose are retained in the cleared payload so the dispatcher can con
 | Field | Type | Description |
 |-------|------|-------------|
 | `train` | string | Train number; engine number for extras |
-| `state` | string | `assembling` \| `ready` \| `cleared` |
+| `state` | string | `assembling` \| `car_block_ready` \| `ready` \| `cleared` |
+| `track_id` | string | Yard track ID where consist is being built |
 | `extra` | bool | True for extra trains (train number = engine number) |
 | `engine` | string | Engine number |
 | `caboose` | string | Caboose number |
@@ -374,18 +395,22 @@ Engine and caboose are retained in the cleared payload so the dispatcher can con
 Sent by the Dispatcher to notify the Yardmaster of operational changes. The `type` field determines which additional fields are present.
 
 ```json
-{ "type": "arrival",          "train": "24", "section": 0, "direction": "S", "expected_rr_time": "11:15", "day": 1 }
-{ "type": "departure_change", "train": "3",  "new_departure_rr_time": "04:15", "day": 1 }
-{ "type": "new_train",        "engine": "101", "direction": "N", "departure_rr_time": "06:00", "day": 1 }
-{ "type": "annulment",        "train": "141", "day": 1 }
+{ "type": "arrival",            "train": "24", "section": 0, "direction": "S", "expected_rr_time": "11:15", "day": 1 }
+{ "type": "departure_change",   "train": "3",  "new_departure_rr_time": "04:15", "day": 1 }
+{ "type": "new_train",          "engine": "101", "direction": "N", "departure_rr_time": "06:00", "day": 1 }
+{ "type": "annulment",          "train": "141", "day": 1 }
+{ "type": "departure_time_set", "engine": "42", "departure_rr_time": "11:30", "day": 1 }
 ```
 
 | `type` | Meaning | Key fields |
 |--------|---------|-----------|
-| `arrival` | Train inbound from XP; prepare yard track, align entrance switch | `train`, `section`, `direction`, `expected_rr_time` |
+| `arrival` | NYE train inbound from XP; YM prepares yard track | `train`, `section`, `direction`, `expected_rr_time` |
 | `departure_change` | Scheduled departure time adjusted | `train`, `new_departure_rr_time` |
-| `new_train` | Extra train authorized by Train Order | `engine`, `direction`, `departure_rr_time` |
-| `annulment` | Scheduled train annulled for this session | `train` |
+| `new_train` | Extra train authorized by Train Order; YM begins car block assembly | `engine`, `direction`, `departure_rr_time` |
+| `annulment` | Scheduled NYE train annulled for this session | `train` |
+| `departure_time_set` | Dispatcher sets departure time for extra in `car_block_ready` state; YM proceeds to Stage 2 (assign engine + caboose) | `engine`, `departure_rr_time` |
+
+**Note:** C&O traffic is entirely within the Yardmaster's domain. The dispatcher sends no C&O-related notifications via this topic. C&O trains are displayed on the yardmaster terminal from the COE timetable directly.
 
 ---
 
@@ -441,7 +466,7 @@ Published by RR_Server when the dispatcher creates a running extra via the struc
 | `trains/camera/{id}/url` | ESP32-CAM | UI | 0 | Yes |
 | `trains/block/{id}/state` | RFID node | UI | 1 | Yes |
 | `trains/yard/consist/{id}` | Yardmaster / Server | All | 1 | Yes |
-| `trains/yard/notification` | UI | Yardmaster | 1 | No |
+| `trains/yard/notification` | Server (dispatcher-triggered) | Yardmaster | 1 | No |
 | `trains/extra/{id}/schedule` | Server | All | 1 | Yes |
 
 ---
@@ -470,3 +495,4 @@ Broker authentication: username/password (configured in Mosquitto — credential
 | 0.5 | 2026-05-17 | OS payload: add `work_extra` field. TO payload: add `trains[]` array for CYD matching; add `day` field; document `to_type`. |
 | 0.6 | 2026-05-19 | TO section: reference `data/to_types.json` as authoritative source for type definitions; list all 6 valid `to_type` values; clarify `addressed_to` as dispatcher-selected and `trains[]` behavior for extras vs scheduled. Add `form` field (stamped from `default_form` in to_types.json; NY&E always `"19"`). |
 | 0.7 | 2026-05-19 | TO payload: replace pre-rendered `text` field with structured `fields` object — each receiver renders order text locally from to_types.json templates. Fix form 19/31 descriptions (19 = standard/hoop-up, 31 = stop-and-sign/clearance). Document signal arm workflow (dispatcher raises arms separately before issuing TO). |
+| 0.8 | 2026-06-05 | Yard consist: add `car_block_ready` state (extras only — car block assembled, engine/caboose pending); add `track_id` field. Yard notification: add `departure_time_set` type (dispatcher → YM to unlock extra Stage 2). Note C&O traffic is YM-only domain, no dispatcher notification types for C&O. |

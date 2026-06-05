@@ -1,7 +1,7 @@
 # NY&E Northern Lights Subdivision — Layout Control System Architecture
 
-**Version:** 1.3
-**Date:** 2026-05-23
+**Version:** 1.4
+**Date:** 2026-06-05
 **Era:** circa 1905 — timetable and train order operations
 
 ---
@@ -220,7 +220,7 @@ Four roles interact with the layout control system. The same person may fill mul
 | Role | When | Function | System interface |
 |------|------|----------|-----------------|
 | **Dispatcher** | Live ops | Controls main line movements. Issues TOs and clearances. Manages meets and extras. | Dispatcher web app (`/`) on RPi5 Display 1 |
-| **Yardmaster** | Live ops | Controls WP yard exclusively. Builds consists, assigns yard tracks, manages arrivals and departures. Submits consist reports. | Yardmaster terminal (`/yard`) — RPi3 + 7" DSI touchscreen |
+| **Yardmaster** | Live ops | Controls WP yard exclusively. Three jobs: (1) construct departing NYE trains — minimum engine + caboose; (2) receive and deconstruct arriving NYE trains; (3) interchange cars with C&O at INTX track. Authority ends at yard limits. Submits consist reports (engine, caboose, loads, empties, track). Manages extra train car block assembly independently of dispatcher (two-stage: car block → engine/caboose after departure time set). | Yardmaster terminal (`/yard`) — RPi3 + ELECROW 7" IPS 1024×600 HDMI touchscreen (pk=106); Chromium kiosk |
 | **Trainmaster** | Pre-session | Reviews waybills (CC&W system), generates train manifests and work orders for the session, identifies extras needed. Produces `session.json`. | Desktop/laptop management tool (not a live layout system) |
 | **Owner** | Pre-session + monitoring | Loads `session.json`, verifies system health before handing to Dispatcher. Monitors system status during ops (read-only). Generates post-session report. | Owner page (`/owner`) — accessible from any device on layout WiFi |
 
@@ -303,7 +303,7 @@ _No open questions._
 | 4 | TO signal auto-lower | Dispatcher releases manually — prototypically authentic |
 | 5 | C&O staging IoT | Deferred — assess when layout reaches that stage |
 | 6 | Dispatcher secondary display | Web app only |
-| 7 | WP Yardmaster unit | Separate physical unit from WP fascia CYD — RPi3 + RPi 7" Official Touchscreen (DSI). Scope defined in Implementation Plan Session 2.0. Hardware must be ordered before Session 2.0. |
+| 7 | WP Yardmaster unit | Separate physical unit from WP fascia CYD — RPi3 (RPi3-1 or RPi3-3) + ELECROW 7" IPS 1024×600 HDMI touchscreen (pk=106, in stock). Touch-only, Chromium kiosk. Full design in `docs/YARDMASTER_DESIGN.md`. |
 | 8 | Train order format | Structured templates, not freeform. TO types defined in management function. |
 | 9 | MQTT state recovery | Server uses persistent MQTT session (clean_session=False). OS log is in-memory only. |
 | 10 | Cancellation term | Correct prototype term is **annulment**. Used throughout. |
