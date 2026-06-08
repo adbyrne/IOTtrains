@@ -30,7 +30,10 @@ A brief physical and operational description to ground architecture decisions. F
 | Upper | C&O mainline — short modeled section between East staging and West staging |
 | Lower | NY&E Northern Lights Subdivision — WP (Williamsport) to HC (Hemlock Crest) |
 
-**Track topology:** Point-to-point, single main track. All seven stations have passing sidings. Southward trains are superior by direction.
+**Track topology:** Point-to-point, single main track. All seven stations have passing sidings. Southward trains are superior by direction. Four of the five online stations (BB, JC, MC, SK) are switchbacks; XP is the register station with long station limits.
+
+**Reference diagrams:** `Trains/docs/diagrams/track_schematic.svg` (track schematic) · `Trains/docs/diagrams/system_overview.svg` (system block diagram)  
+**XTrkCAD data:** siding lengths and exit MPs pending — see `Trains/docs/XTRKCAD_DATA_REQUIREMENTS.md`
 
 **Williamsport (WP) — Junction and yard:**
 - Junction between C&O upper level and NY&E lower level; shared station building

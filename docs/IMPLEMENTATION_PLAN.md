@@ -304,11 +304,42 @@ Yardmaster-only data. Separate from `timetable.json`. Contains:
 
 ---
 
+## Future Enhancements
+
+### E-Paper Timetable Display at Stations
+_Scope defined 2026-06-06. Session number TBD. Research: `docs/HARDWARE_RESEARCH_EPAPER_THERMAL.md`_
+
+A dedicated read-only timetable display per station, separate from the CYD Station_OS unit. Operators (typically 50+) can zoom in to read specific train times without interacting with the ops panel.
+
+- **Hardware:** Waveshare 7.5" e-Paper HAT (800×480 B/W) + RPi Zero 2W per station; ~$75/unit, ~$750 for 10
+- **Zoom:** 2–3 discrete levels (overview → subdivision timetable → enlarged single row) via button/touch; ~0.5–1s per step using partial refresh
+- **Content:** rendered from `timetable.json`; updates only when timetable version changes — zero power when static
+- **Optional:** Upgrade to tri-color (R/B/W) to highlight restricted/flagged stations in red; ~$98/unit
+- **Single large display option:** Waveshare 13.3" 1600×1200 B/W for dispatcher position or posted timetable board; ~$275 single unit
+- **Completion:** Each station has a legible, always-on timetable display; operators do not need to reference paper timetables
+
+### Thermal Train Order Printer at Stations
+_Scope defined 2026-06-06. Session number TBD. Research: `docs/HARDWARE_RESEARCH_EPAPER_THERMAL.md`_
+
+A small 58mm thermal receipt printer at each station to produce a physical printed Train Order when the dispatcher issues one via the system. Fits the 1905-era railroad operations flavor.
+
+- **Hardware:** 58mm TTL serial thermal module (PRIMUZ/Maikrt ~$25, or Adafruit 2751 ~$50 for prototype); connects to ESP32 UART on existing CYD unit
+- **Size:** ~2.3" × 3.2" × 1.7" (fits in fascia enclosure alongside CYD); 58mm paper ≈ width of a dollar bill
+- **Paper:** 58mm × 30m rolls, ~375 tickets/roll; ~$0.30–0.50/roll in bulk 50-packs
+- **Integration:** ESC/POS commands over UART; ESP32 prints on MQTT TO receipt (new `trains/to/+/print` trigger or auto-print on issue)
+- **Power:** dedicated 5V 2A rail per station shared with CYD
+- **Cost:** ~$46/unit (budget module), ~$460 for 10; prototype first station with Adafruit module (~$67) before committing to budget modules
+- **Completion:** Dispatcher issues a TO → station printer produces a physical paper order for the operator; chain-of-custody matches prototype railroad practice
+
+---
+
 ## Hardware to Order
 
 | Item | Purpose | Needed by |
 |------|---------|-----------|
 | ~~RPi 7" Official Touchscreen (DSI)~~ | ~~Yardmaster terminal display~~ | **In stock:** ELECROW 7" IPS 1024×600 (pk=106) or 5" TN 800×480 (pk=107) — HDMI, size TBD before Session 2.0 |
+| Waveshare 7.5" e-Paper HAT (B/W) × 10 + RPi Zero 2W × 10 | Station timetable displays (future enhancement) | When e-paper enhancement is approved |
+| 58mm thermal printer module × 1 (Adafruit 2751) | Prototype TO printer for firmware development | Before thermal printer session |
 
 ---
 
@@ -357,3 +388,4 @@ Yardmaster-only data. Separate from `timetable.json`. Contains:
 | 2.2 | 2026-05-19 | Session 2.2 implementation plan finalised. Design decisions: structured payload (no pre-rendered text), dispatcher-manual signal arm control, TO queue with auto-show-next, form 19/31 descriptions corrected. MQTT_SPEC.md v0.7. |
 | 2.3 | 2026-05-23 | Session 2.5 complete. Station_OS v2.3.0: PCA9685 signal arm control via CN1 I2C (IO27/IO22). CYD I2C design question resolved (GPIO21=backlight). Dispatcher v2.3: TO issuance single-step (signal step removed). TO_Signal ESP32 enclosure cancelled — not needed. |
 | 2.4 | 2026-06-05 | Session 2.0 design complete. Full yardmaster terminal design in docs/YARDMASTER_DESIGN.md. Consists: two-stage extra train workflow, car_block_ready state. C&O as YM-only domain. MQTT_SPEC.md v0.8. Session 2.0 expanded to 2.0a (backend) + 2.0b (UI + RPi3). 15 open questions and considerations documented. |
+| 2.5 | 2026-06-06 | Future enhancements added: e-paper station timetable displays (7.5" B/W, ~$75/unit) and thermal Train Order printers (58mm TTL, ~$46/unit). Hardware research in docs/HARDWARE_RESEARCH_EPAPER_THERMAL.md. Hardware to Order table updated. |
