@@ -1,0 +1,83 @@
+{
+  "version": "1.0",
+  "yard": "WP",
+  "yard_name": "Williamsport Yard",
+  "notes": "Lengths are approximate model-scale (HO). XTrkCAD survey needed to confirm exact values. Capacity = floor(length_in / 5.5) based on 40-ft car standard. Double-ended yard: yard lead on south switches; north switches for branch entry/exit.",
+  "tracks": [
+    {
+      "id": "RUN",
+      "label": "Run-around",
+      "function": "runaround",
+      "notes": "Switch access to local industries, roundhouse, ice house, tipple. Length TBD from XTrkCAD.",
+      "length_model_in": null,
+      "capacity_cars": null
+    },
+    {
+      "id": "CAB",
+      "label": "Caboose",
+      "function": "caboose",
+      "notes": "Adjacent to run-around track.",
+      "length_model_in": 31,
+      "capacity_cars": 5
+    },
+    {
+      "id": "T2",
+      "label": "Track 2",
+      "function": "local",
+      "notes": "YM staging.",
+      "length_model_in": 33,
+      "capacity_cars": 6
+    },
+    {
+      "id": "T3",
+      "label": "Track 3",
+      "function": "local",
+      "notes": "YM staging.",
+      "length_model_in": 50,
+      "capacity_cars": 9
+    },
+    {
+      "id": "T4",
+      "label": "Track 4",
+      "function": "local",
+      "notes": "YM staging.",
+      "length_model_in": 52,
+      "capacity_cars": 9
+    },
+    {
+      "id": "T5",
+      "label": "Track 5 (A/D)",
+      "function": "arrival_departure",
+      "notes": "NYE arrival/departure track.",
+      "length_model_in": 70,
+      "capacity_cars": 12
+    },
+    {
+      "id": "T6",
+      "label": "Track 6 (A/D / INTX-E)",
+      "function": "arrival_departure",
+      "alt_function": "interchange_east",
+      "notes": "Dual use: full 70\" as NYE A/D track; 36\" usable as C&O eastbound interchange.",
+      "length_model_in": 70,
+      "capacity_cars": 12,
+      "intx_length_model_in": 36,
+      "intx_capacity_cars": 6
+    },
+    {
+      "id": "T7",
+      "label": "Track 7 (INTX-W)",
+      "function": "interchange_west",
+      "notes": "C&O westbound interchange.",
+      "length_model_in": 36,
+      "capacity_cars": 6
+    },
+    {
+      "id": "T8",
+      "label": "Track 8 (C&O)",
+      "function": "co_siding",
+      "notes": "C&O siding / locomotive and car storage.",
+      "length_model_in": 110,
+      "capacity_cars": 20
+    }
+  ]
+}

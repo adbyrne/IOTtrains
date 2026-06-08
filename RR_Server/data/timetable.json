@@ -103,7 +103,8 @@
           "name": "Xina Pass",
           "milepost": 37,
           "milepost_exit": 43.5,
-          "switchback": true,
+          "milepost_note": "Station limits span mp 37.0–43.5 — long passing siding at mountain pass; both entry and exit MPs required for timetable",
+          "switchback": false,
           "within_limits_of": null,
           "types": ["TO", "R"],
           "cyd": true,
@@ -136,12 +137,13 @@
           "name": "Becs Bend",
           "milepost": 58.4,
           "milepost_exit": null,
-          "switchback": false,
+          "milepost_note": "Switchback — milepost_exit TBD from XTrkCAD survey",
+          "switchback": true,
           "within_limits_of": null,
           "types": ["TO"],
           "cyd": true,
           "show_times": true,
-          "show_both_times": false,
+          "show_both_times": true,
           "siding_length_cars": null,
           "flagging_required": false,
           "service_facilities": [],
@@ -152,12 +154,13 @@
           "name": "Jacks Creek",
           "milepost": 76.4,
           "milepost_exit": null,
-          "switchback": false,
+          "milepost_note": "Switchback — milepost_exit TBD from XTrkCAD survey",
+          "switchback": true,
           "within_limits_of": null,
           "types": ["TO"],
           "cyd": true,
           "show_times": true,
-          "show_both_times": false,
+          "show_both_times": true,
           "siding_length_cars": null,
           "flagging_required": false,
           "service_facilities": [],
@@ -168,13 +171,13 @@
           "name": "Michelles Cove",
           "milepost": 99.2,
           "milepost_exit": null,
-          "milepost_note": "QM2 spur ~1.5 mi off MC — milepost_exit TBD pending remodel (using QM2 distance pending XTrkCAD survey)",
+          "milepost_note": "Switchback — milepost_exit TBD from XTrkCAD survey; QM2 spur accessible from MC siding",
           "switchback": true,
           "within_limits_of": null,
           "types": ["TO"],
           "cyd": true,
           "show_times": true,
-          "show_both_times": false,
+          "show_both_times": true,
           "siding_length_cars": null,
           "flagging_required": true,
           "service_facilities": [],
@@ -202,40 +205,25 @@
           "name": "Stans Knob",
           "milepost": 103.2,
           "milepost_exit": null,
-          "switchback": false,
+          "milepost_note": "Switchback — milepost_exit TBD from XTrkCAD survey",
+          "switchback": true,
           "within_limits_of": null,
           "types": ["TO"],
           "cyd": true,
           "show_times": true,
-          "show_both_times": false,
+          "show_both_times": true,
           "siding_length_cars": null,
           "flagging_required": false,
           "service_facilities": [],
           "crew_notes": []
         },
         {
-          "id": "QM3",
-          "name": "Quilly Mine #3",
-          "milepost": 112.2,
-          "milepost_exit": 118.2,
-          "switchback": true,
-          "within_limits_of": null,
-          "types": ["S"],
-          "cyd": false,
-          "show_times": false,
-          "show_both_times": false,
-          "siding_length_cars": null,
-          "flagging_required": true,
-          "service_facilities": [],
-          "crew_notes": []
-        },
-        {
           "id": "TIMBER",
           "name": "Timber Ltd",
-          "milepost": 128.1,
+          "milepost": null,
           "milepost_exit": null,
           "switchback": false,
-          "within_limits_of": null,
+          "within_limits_of": "JC",
           "types": ["I"],
           "cyd": false,
           "show_times": false,
@@ -601,7 +589,128 @@
           "show_both_times": false
         }
       ],
-      "trains": []
+      "trains": [
+        {
+          "number": "91",
+          "class": 3,
+          "service": "Coal",
+          "direction": "W",
+          "days": [1, 2, 3, 4, 5, 6, 7],
+          "schedule": [
+            { "location": "WP_EAST_STG", "depart": "03:45" },
+            { "location": "WP_COE",      "depart": "03:50", "note": "WP Yard East" },
+            { "location": "WP_WEST_STG", "arrive": "04:17" }
+          ]
+        },
+        {
+          "number": "93",
+          "class": 3,
+          "service": "Coal",
+          "direction": "W",
+          "days": [1, 2, 3, 4, 5, 6, 7],
+          "schedule": [
+            { "location": "WP_EAST_STG", "depart": "12:15" },
+            { "location": "WP_COE",      "depart": "12:20", "note": "WP Yard East" },
+            { "location": "WP_WEST_STG", "arrive": "12:47" }
+          ]
+        },
+        {
+          "number": "5",
+          "class": 1,
+          "service": "Pass",
+          "direction": "W",
+          "days": [1, 2, 3, 4, 5, 6, 7],
+          "schedule": [
+            { "location": "WP_EAST_STG", "depart": "15:09" },
+            { "location": "WP_COE",      "arrive": "15:12", "depart": "15:29" },
+            { "location": "WP_WEST_STG", "arrive": "15:31" }
+          ]
+        },
+        {
+          "number": "7",
+          "class": 1,
+          "service": "Pass",
+          "direction": "W",
+          "days": [1, 2, 3, 4, 5, 6, 7],
+          "schedule": [
+            { "location": "WP_EAST_STG", "depart": "01:58" },
+            { "location": "WP_COE",      "arrive": "02:01", "depart": "02:17" },
+            { "location": "WP_WEST_STG", "arrive": "02:21" }
+          ]
+        },
+        {
+          "number": "23",
+          "class": 2,
+          "service": "Pass",
+          "direction": "W",
+          "days": [1, 2, 3, 4, 5, 6, 7],
+          "schedule": [
+            { "location": "WP_EAST_STG", "depart": "20:19" },
+            { "location": "WP_COE",      "arrive": "20:22", "depart": "20:37" },
+            { "location": "WP_WEST_STG", "arrive": "20:41" }
+          ]
+        },
+        {
+          "number": "92",
+          "class": 3,
+          "service": "Coal",
+          "direction": "E",
+          "days": [1, 2, 3, 4, 5, 6, 7],
+          "schedule": [
+            { "location": "WP_WEST_STG", "depart": "11:06" },
+            { "location": "WP_COE",      "depart": "11:35", "note": "WP Yard East" },
+            { "location": "WP_EAST_STG", "arrive": "11:43" }
+          ]
+        },
+        {
+          "number": "94",
+          "class": 3,
+          "service": "Coal",
+          "direction": "E",
+          "days": [1, 2, 3, 4, 5, 6, 7],
+          "schedule": [
+            { "location": "WP_WEST_STG", "depart": "18:53" },
+            { "location": "WP_COE",      "depart": "19:25", "note": "WP Yard East" },
+            { "location": "WP_EAST_STG", "arrive": "19:33" }
+          ]
+        },
+        {
+          "number": "12",
+          "class": 1,
+          "service": "Pass",
+          "direction": "E",
+          "days": [1, 2, 3, 4, 5, 6, 7],
+          "schedule": [
+            { "location": "WP_WEST_STG", "depart": "11:37" },
+            { "location": "WP_COE",      "arrive": "11:40", "depart": "11:55" },
+            { "location": "WP_EAST_STG", "arrive": "11:59" }
+          ]
+        },
+        {
+          "number": "6",
+          "class": 2,
+          "service": "Pass",
+          "direction": "E",
+          "days": [1, 2, 3, 4, 5, 6, 7],
+          "schedule": [
+            { "location": "WP_WEST_STG", "depart": "22:31" },
+            { "location": "WP_COE",      "arrive": "22:34", "depart": "22:49" },
+            { "location": "WP_EAST_STG", "arrive": "22:53" }
+          ]
+        },
+        {
+          "number": "32",
+          "class": 2,
+          "service": "Pass",
+          "direction": "E",
+          "days": [1, 2, 3, 4, 5, 6, 7],
+          "schedule": [
+            { "location": "WP_WEST_STG", "depart": "17:25" },
+            { "location": "WP_COE",      "arrive": "17:28", "depart": "17:43" },
+            { "location": "WP_EAST_STG", "arrive": "17:47" }
+          ]
+        }
+      ]
     }
   ]
 }
