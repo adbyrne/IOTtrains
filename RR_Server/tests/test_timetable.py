@@ -192,7 +192,7 @@ def test_location_by_id_found():
     assert loc["id"] == "XP"
     assert loc["name"] == "Xina Pass"
     assert loc["cyd"] is True
-    assert loc["switchback"] is True
+    assert loc["switchback"] is False
 
 
 def test_location_by_id_not_found():
@@ -207,5 +207,8 @@ def test_coe_locations_present():
     assert "WP_COE" in ids
 
 
-def test_coe_no_trains():
-    assert timetable.active_trains("COE", 1) == []
+def test_coe_has_trains():
+    trains = timetable.active_trains("COE", 1)
+    assert len(trains) == 10
+    numbers = [t["number"] for t in trains]
+    assert "91" in numbers
