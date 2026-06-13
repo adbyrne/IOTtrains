@@ -24,7 +24,11 @@
           "milepost_exit": null,
           "switchback": false,
           "within_limits_of": null,
-          "types": ["YL", "TO", "R"],
+          "types": [
+            "YL",
+            "TO",
+            "R"
+          ],
           "cyd": false,
           "show_times": true,
           "show_both_times": false,
@@ -40,13 +44,21 @@
           "milepost_exit": null,
           "switchback": false,
           "within_limits_of": null,
-          "types": ["TO", "R"],
+          "types": [
+            "TO",
+            "R"
+          ],
           "cyd": true,
           "show_times": true,
           "show_both_times": false,
           "siding_length_cars": null,
           "flagging_required": false,
-          "service_facilities": ["water", "coal", "sand", "ice"],
+          "service_facilities": [
+            "water",
+            "coal",
+            "sand",
+            "ice"
+          ],
           "crew_notes": []
         },
         {
@@ -56,14 +68,16 @@
           "milepost_exit": null,
           "switchback": true,
           "within_limits_of": null,
-          "types": ["I"],
+          "types": [
+            "I"
+          ],
           "cyd": false,
           "show_times": false,
           "show_both_times": false,
-          "siding_length_cars": 2,
           "flagging_required": false,
           "service_facilities": [],
-          "crew_notes": []
+          "crew_notes": [],
+          "car_spots": 2
         },
         {
           "id": "OHARAS_LF",
@@ -72,14 +86,16 @@
           "milepost_exit": null,
           "switchback": false,
           "within_limits_of": null,
-          "types": ["I"],
+          "types": [
+            "I"
+          ],
           "cyd": false,
           "show_times": false,
           "show_both_times": false,
-          "siding_length_cars": 2,
           "flagging_required": false,
           "service_facilities": [],
-          "crew_notes": []
+          "crew_notes": [],
+          "car_spots": 2
         },
         {
           "id": "OHARAS_CS",
@@ -88,14 +104,16 @@
           "milepost_exit": null,
           "switchback": false,
           "within_limits_of": null,
-          "types": ["I"],
+          "types": [
+            "I"
+          ],
           "cyd": false,
           "show_times": false,
           "show_both_times": false,
-          "siding_length_cars": 2,
           "flagging_required": false,
           "service_facilities": [],
-          "crew_notes": []
+          "crew_notes": [],
+          "car_spots": 1
         },
         {
           "id": "XP",
@@ -104,7 +122,10 @@
           "milepost_exit": 4097.6,
           "switchback": false,
           "within_limits_of": null,
-          "types": ["TO", "R"],
+          "types": [
+            "TO",
+            "R"
+          ],
           "cyd": true,
           "show_times": true,
           "show_both_times": true,
@@ -120,14 +141,18 @@
           "milepost_exit": null,
           "switchback": true,
           "within_limits_of": "XP",
-          "types": ["I"],
+          "types": [
+            "I"
+          ],
           "cyd": false,
           "show_times": false,
           "show_both_times": false,
-          "siding_length_cars": 2,
           "flagging_required": false,
           "service_facilities": [],
-          "crew_notes": ["Mine exchange at XP — set out loads, pick up empties at XP spur"]
+          "crew_notes": [
+            "Mine exchange at XP \u2014 set out loads, pick up empties at XP spur"
+          ],
+          "car_spots": 2
         },
         {
           "id": "BB",
@@ -136,7 +161,9 @@
           "milepost_exit": 5580.4,
           "switchback": true,
           "within_limits_of": null,
-          "types": ["TO"],
+          "types": [
+            "TO"
+          ],
           "cyd": true,
           "show_times": true,
           "show_both_times": true,
@@ -152,7 +179,9 @@
           "milepost_exit": null,
           "switchback": false,
           "within_limits_of": null,
-          "types": ["TO"],
+          "types": [
+            "TO"
+          ],
           "cyd": true,
           "show_times": true,
           "show_both_times": false,
@@ -168,24 +197,28 @@
           "milepost_exit": null,
           "switchback": false,
           "within_limits_of": "JC",
-          "types": ["I"],
+          "types": [
+            "I"
+          ],
           "cyd": false,
           "show_times": false,
           "show_both_times": false,
-          "siding_length_cars": 2,
           "flagging_required": false,
           "service_facilities": [],
-          "crew_notes": []
+          "crew_notes": [],
+          "car_spots": 3
         },
         {
           "id": "MC",
           "name": "Michelles Cove",
           "milepost": 9132.9,
           "milepost_exit": null,
-          "milepost_note": "Switchback — two-switch geometry: entry at main switch (mp 9132.9), exit at main-to-passing-track switch (mp TBD from XTrkCAD topology analysis)",
+          "milepost_note": "Switchback \u2014 two-switch geometry: entry at main switch (mp 9132.9), exit at main-to-passing-track switch (mp TBD from XTrkCAD topology analysis)",
           "switchback": true,
           "within_limits_of": null,
-          "types": ["TO"],
+          "types": [
+            "TO"
+          ],
           "cyd": true,
           "show_times": true,
           "show_both_times": true,
@@ -201,14 +234,16 @@
           "milepost_exit": null,
           "switchback": false,
           "within_limits_of": "MC",
-          "types": ["I"],
+          "types": [
+            "I"
+          ],
           "cyd": false,
           "show_times": false,
           "show_both_times": false,
-          "siding_length_cars": 2,
           "flagging_required": false,
           "service_facilities": [],
-          "crew_notes": []
+          "crew_notes": [],
+          "car_spots": 2
         },
         {
           "id": "SK",
@@ -217,7 +252,9 @@
           "milepost_exit": 15135.7,
           "switchback": true,
           "within_limits_of": null,
-          "types": ["TO"],
+          "types": [
+            "TO"
+          ],
           "cyd": true,
           "show_times": true,
           "show_both_times": true,
@@ -233,7 +270,10 @@
           "milepost_exit": 18285.3,
           "switchback": false,
           "within_limits_of": null,
-          "types": ["TO", "R"],
+          "types": [
+            "TO",
+            "R"
+          ],
           "cyd": true,
           "show_times": true,
           "show_both_times": false,
@@ -249,14 +289,45 @@
           "class": 1,
           "service": "Pass",
           "direction": "N",
-          "days": [1, 2, 3, 4, 5, 6, 7],
+          "days": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
           "schedule": [
-            { "location": "WP",  "depart": "07:10" },
-            { "location": "XP",  "arrive": "07:19", "depart": "07:29", "note": "Wait for No. 52" },
-            { "location": "BB",  "arrive": "07:31", "depart": "07:41" },
-            { "location": "JC",  "arrive": "07:46", "depart": "07:56" },
-            { "location": "SK",  "arrive": "08:03", "depart": "08:13" },
-            { "location": "HC",  "arrive": "08:19" }
+            {
+              "location": "WP",
+              "depart": "07:10"
+            },
+            {
+              "location": "XP",
+              "arrive": "07:19",
+              "depart": "07:29",
+              "note": "Wait for No. 52"
+            },
+            {
+              "location": "BB",
+              "arrive": "07:31",
+              "depart": "07:41"
+            },
+            {
+              "location": "JC",
+              "arrive": "07:46",
+              "depart": "07:56"
+            },
+            {
+              "location": "SK",
+              "arrive": "08:03",
+              "depart": "08:13"
+            },
+            {
+              "location": "HC",
+              "arrive": "08:19"
+            }
           ]
         },
         {
@@ -264,14 +335,44 @@
           "class": 1,
           "service": "Pass",
           "direction": "N",
-          "days": [1, 2, 3, 4, 5, 6, 7],
+          "days": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
           "schedule": [
-            { "location": "WP",  "depart": "15:45" },
-            { "location": "XP",  "arrive": "15:54", "depart": "16:04" },
-            { "location": "BB",  "arrive": "16:06", "depart": "16:16" },
-            { "location": "JC",  "arrive": "16:21", "depart": "16:31" },
-            { "location": "SK",  "arrive": "16:38", "depart": "16:48" },
-            { "location": "HC",  "arrive": "16:54" }
+            {
+              "location": "WP",
+              "depart": "15:45"
+            },
+            {
+              "location": "XP",
+              "arrive": "15:54",
+              "depart": "16:04"
+            },
+            {
+              "location": "BB",
+              "arrive": "16:06",
+              "depart": "16:16"
+            },
+            {
+              "location": "JC",
+              "arrive": "16:21",
+              "depart": "16:31"
+            },
+            {
+              "location": "SK",
+              "arrive": "16:38",
+              "depart": "16:48"
+            },
+            {
+              "location": "HC",
+              "arrive": "16:54"
+            }
           ]
         },
         {
@@ -279,14 +380,45 @@
           "class": 1,
           "service": "Frght",
           "direction": "N",
-          "days": [1, 2, 3, 4, 5, 6, 7],
+          "days": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
           "schedule": [
-            { "location": "WP_YARD", "depart": "04:00" },
-            { "location": "XP",      "depart": "04:12", "note": "Wait for No. 112" },
-            { "location": "BB",      "arrive": "04:15", "depart": "04:25", "note": "Wait for No. 22" },
-            { "location": "JC",      "arrive": "04:31", "depart": "04:41" },
-            { "location": "SK",      "arrive": "04:49", "depart": "05:29" },
-            { "location": "HC",      "arrive": "05:36" }
+            {
+              "location": "WP_YARD",
+              "depart": "04:00"
+            },
+            {
+              "location": "XP",
+              "depart": "04:12",
+              "note": "Wait for No. 112"
+            },
+            {
+              "location": "BB",
+              "arrive": "04:15",
+              "depart": "04:25",
+              "note": "Wait for No. 22"
+            },
+            {
+              "location": "JC",
+              "arrive": "04:31",
+              "depart": "04:41"
+            },
+            {
+              "location": "SK",
+              "arrive": "04:49",
+              "depart": "05:29"
+            },
+            {
+              "location": "HC",
+              "arrive": "05:36"
+            }
           ]
         },
         {
@@ -294,14 +426,44 @@
           "class": 2,
           "service": "Pass",
           "direction": "N",
-          "days": [1, 2, 3, 4, 5, 6, 7],
+          "days": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
           "schedule": [
-            { "location": "WP", "depart": "01:31" },
-            { "location": "XP", "arrive": "01:41", "depart": "01:51" },
-            { "location": "BB", "arrive": "01:55", "depart": "02:05" },
-            { "location": "JC", "arrive": "02:13", "depart": "02:23" },
-            { "location": "SK", "arrive": "02:33", "depart": "02:43" },
-            { "location": "HC", "arrive": "02:52" }
+            {
+              "location": "WP",
+              "depart": "01:31"
+            },
+            {
+              "location": "XP",
+              "arrive": "01:41",
+              "depart": "01:51"
+            },
+            {
+              "location": "BB",
+              "arrive": "01:55",
+              "depart": "02:05"
+            },
+            {
+              "location": "JC",
+              "arrive": "02:13",
+              "depart": "02:23"
+            },
+            {
+              "location": "SK",
+              "arrive": "02:33",
+              "depart": "02:43"
+            },
+            {
+              "location": "HC",
+              "arrive": "02:52"
+            }
           ]
         },
         {
@@ -309,14 +471,44 @@
           "class": 2,
           "service": "Pass",
           "direction": "N",
-          "days": [1, 2, 3, 4, 5, 6, 7],
+          "days": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
           "schedule": [
-            { "location": "WP", "depart": "11:00" },
-            { "location": "XP", "arrive": "11:10", "depart": "11:20" },
-            { "location": "BB", "arrive": "11:24", "depart": "11:34" },
-            { "location": "JC", "arrive": "11:42", "depart": "11:52" },
-            { "location": "SK", "arrive": "12:02", "depart": "12:12" },
-            { "location": "HC", "arrive": "12:21" }
+            {
+              "location": "WP",
+              "depart": "11:00"
+            },
+            {
+              "location": "XP",
+              "arrive": "11:10",
+              "depart": "11:20"
+            },
+            {
+              "location": "BB",
+              "arrive": "11:24",
+              "depart": "11:34"
+            },
+            {
+              "location": "JC",
+              "arrive": "11:42",
+              "depart": "11:52"
+            },
+            {
+              "location": "SK",
+              "arrive": "12:02",
+              "depart": "12:12"
+            },
+            {
+              "location": "HC",
+              "arrive": "12:21"
+            }
           ]
         },
         {
@@ -324,14 +516,44 @@
           "class": 2,
           "service": "Pass",
           "direction": "N",
-          "days": [1, 2, 3, 4, 5, 6, 7],
+          "days": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
           "schedule": [
-            { "location": "WP", "depart": "20:15" },
-            { "location": "XP", "arrive": "20:25", "depart": "20:35" },
-            { "location": "BB", "arrive": "20:39", "depart": "20:49" },
-            { "location": "JC", "arrive": "20:57", "depart": "21:07" },
-            { "location": "SK", "arrive": "21:17", "depart": "21:27" },
-            { "location": "HC", "arrive": "21:36" }
+            {
+              "location": "WP",
+              "depart": "20:15"
+            },
+            {
+              "location": "XP",
+              "arrive": "20:25",
+              "depart": "20:35"
+            },
+            {
+              "location": "BB",
+              "arrive": "20:39",
+              "depart": "20:49"
+            },
+            {
+              "location": "JC",
+              "arrive": "20:57",
+              "depart": "21:07"
+            },
+            {
+              "location": "SK",
+              "arrive": "21:17",
+              "depart": "21:27"
+            },
+            {
+              "location": "HC",
+              "arrive": "21:36"
+            }
           ]
         },
         {
@@ -339,10 +561,26 @@
           "class": 3,
           "service": "Coal",
           "direction": "N",
-          "days": [1, 2, 3, 4, 5, 6, 7],
+          "days": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
           "schedule": [
-            { "location": "WP_YARD", "depart": "03:15" },
-            { "location": "XP",      "arrive": "03:35", "depart": "03:38", "note": "Setout QM1 spur" }
+            {
+              "location": "WP_YARD",
+              "depart": "03:15"
+            },
+            {
+              "location": "XP",
+              "arrive": "03:35",
+              "depart": "03:38",
+              "note": "Setout QM1 spur"
+            }
           ]
         },
         {
@@ -350,13 +588,37 @@
           "class": 3,
           "service": "Coal",
           "direction": "N",
-          "days": [1, 2, 3, 4, 5, 6, 7],
+          "days": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
           "schedule": [
-            { "location": "WP_YARD", "depart": "00:15" },
-            { "location": "XP",      "depart": "00:35" },
-            { "location": "BB",      "depart": "00:49" },
-            { "location": "JC",      "depart": "01:07" },
-            { "location": "MC",      "arrive": "01:16", "note": "Setout QM2 spur" }
+            {
+              "location": "WP_YARD",
+              "depart": "00:15"
+            },
+            {
+              "location": "XP",
+              "depart": "00:35"
+            },
+            {
+              "location": "BB",
+              "depart": "00:49"
+            },
+            {
+              "location": "JC",
+              "depart": "01:07"
+            },
+            {
+              "location": "MC",
+              "arrive": "01:16",
+              "note": "Setout QM2 spur"
+            }
           ]
         },
         {
@@ -364,10 +626,26 @@
           "class": 3,
           "service": "Coal",
           "direction": "N",
-          "days": [1, 2, 3, 4, 5, 6, 7],
+          "days": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
           "schedule": [
-            { "location": "WP_YARD", "depart": "12:20" },
-            { "location": "XP",      "arrive": "12:40", "depart": "12:43", "note": "Setout QM1 spur" }
+            {
+              "location": "WP_YARD",
+              "depart": "12:20"
+            },
+            {
+              "location": "XP",
+              "arrive": "12:40",
+              "depart": "12:43",
+              "note": "Setout QM1 spur"
+            }
           ]
         },
         {
@@ -375,13 +653,37 @@
           "class": 3,
           "service": "Coal",
           "direction": "N",
-          "days": [1, 2, 3, 4, 5, 6, 7],
+          "days": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
           "schedule": [
-            { "location": "WP_YARD", "depart": "11:39" },
-            { "location": "XP",      "depart": "11:59" },
-            { "location": "BB",      "depart": "12:13" },
-            { "location": "JC",      "depart": "12:31" },
-            { "location": "MC",      "arrive": "12:40", "note": "Setout QM2 spur" }
+            {
+              "location": "WP_YARD",
+              "depart": "11:39"
+            },
+            {
+              "location": "XP",
+              "depart": "11:59"
+            },
+            {
+              "location": "BB",
+              "depart": "12:13"
+            },
+            {
+              "location": "JC",
+              "depart": "12:31"
+            },
+            {
+              "location": "MC",
+              "arrive": "12:40",
+              "note": "Setout QM2 spur"
+            }
           ]
         },
         {
@@ -389,10 +691,26 @@
           "class": 3,
           "service": "Coke",
           "direction": "N",
-          "days": [1, 2, 3, 4, 5, 6, 7],
+          "days": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
           "schedule": [
-            { "location": "WP_YARD", "depart": "20:30" },
-            { "location": "XP",      "arrive": "21:00", "depart": "21:03", "note": "Setout QM1 spur" }
+            {
+              "location": "WP_YARD",
+              "depart": "20:30"
+            },
+            {
+              "location": "XP",
+              "arrive": "21:00",
+              "depart": "21:03",
+              "note": "Setout QM1 spur"
+            }
           ]
         },
         {
@@ -400,14 +718,45 @@
           "class": 1,
           "service": "Pass",
           "direction": "S",
-          "days": [1, 2, 3, 4, 5, 6, 7],
+          "days": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
           "schedule": [
-            { "location": "HC", "depart": "09:00" },
-            { "location": "SK", "arrive": "09:06", "depart": "09:16" },
-            { "location": "JC", "arrive": "09:23", "depart": "09:33" },
-            { "location": "BB", "arrive": "09:38", "depart": "09:48" },
-            { "location": "XP", "arrive": "09:50", "depart": "10:00", "note": "Wait for No. 1" },
-            { "location": "WP", "arrive": "10:09" }
+            {
+              "location": "HC",
+              "depart": "09:00"
+            },
+            {
+              "location": "SK",
+              "arrive": "09:06",
+              "depart": "09:16"
+            },
+            {
+              "location": "JC",
+              "arrive": "09:23",
+              "depart": "09:33"
+            },
+            {
+              "location": "BB",
+              "arrive": "09:38",
+              "depart": "09:48"
+            },
+            {
+              "location": "XP",
+              "arrive": "09:50",
+              "depart": "10:00",
+              "note": "Wait for No. 1"
+            },
+            {
+              "location": "WP",
+              "arrive": "10:09"
+            }
           ]
         },
         {
@@ -415,14 +764,44 @@
           "class": 1,
           "service": "Pass",
           "direction": "S",
-          "days": [1, 2, 3, 4, 5, 6, 7],
+          "days": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
           "schedule": [
-            { "location": "HC", "depart": "17:45" },
-            { "location": "SK", "arrive": "17:51", "depart": "18:01" },
-            { "location": "JC", "arrive": "18:08", "depart": "18:18" },
-            { "location": "BB", "arrive": "18:23", "depart": "18:33" },
-            { "location": "XP", "arrive": "18:35", "depart": "18:45" },
-            { "location": "WP", "arrive": "18:54" }
+            {
+              "location": "HC",
+              "depart": "17:45"
+            },
+            {
+              "location": "SK",
+              "arrive": "17:51",
+              "depart": "18:01"
+            },
+            {
+              "location": "JC",
+              "arrive": "18:08",
+              "depart": "18:18"
+            },
+            {
+              "location": "BB",
+              "arrive": "18:23",
+              "depart": "18:33"
+            },
+            {
+              "location": "XP",
+              "arrive": "18:35",
+              "depart": "18:45"
+            },
+            {
+              "location": "WP",
+              "arrive": "18:54"
+            }
           ]
         },
         {
@@ -430,14 +809,45 @@
           "class": 1,
           "service": "Frght",
           "direction": "S",
-          "days": [1, 2, 3, 4, 5, 6, 7],
+          "days": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
           "schedule": [
-            { "location": "HC",     "depart": "06:15" },
-            { "location": "SK",     "arrive": "06:24", "depart": "06:34" },
-            { "location": "JC",     "arrive": "06:44", "depart": "06:54" },
-            { "location": "BB",     "arrive": "07:02", "depart": "07:12" },
-            { "location": "XP",     "arrive": "07:16", "depart": "07:45", "note": "Wait for No. 1" },
-            { "location": "WP_YARD","arrive": "07:55" }
+            {
+              "location": "HC",
+              "depart": "06:15"
+            },
+            {
+              "location": "SK",
+              "arrive": "06:24",
+              "depart": "06:34"
+            },
+            {
+              "location": "JC",
+              "arrive": "06:44",
+              "depart": "06:54"
+            },
+            {
+              "location": "BB",
+              "arrive": "07:02",
+              "depart": "07:12"
+            },
+            {
+              "location": "XP",
+              "arrive": "07:16",
+              "depart": "07:45",
+              "note": "Wait for No. 1"
+            },
+            {
+              "location": "WP_YARD",
+              "arrive": "07:55"
+            }
           ]
         },
         {
@@ -445,14 +855,46 @@
           "class": 2,
           "service": "Pass",
           "direction": "S",
-          "days": [1, 2, 3, 4, 5, 6, 7],
+          "days": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
           "schedule": [
-            { "location": "HC", "depart": "03:31" },
-            { "location": "SK", "arrive": "03:40", "depart": "03:50" },
-            { "location": "JC", "arrive": "04:00", "depart": "04:12" },
-            { "location": "BB", "arrive": "04:20", "depart": "04:30", "note": "Wait for No. 11" },
-            { "location": "XP", "arrive": "04:34", "depart": "04:44", "note": "Wait for No. 122" },
-            { "location": "WP", "arrive": "04:54" }
+            {
+              "location": "HC",
+              "depart": "03:31"
+            },
+            {
+              "location": "SK",
+              "arrive": "03:40",
+              "depart": "03:50"
+            },
+            {
+              "location": "JC",
+              "arrive": "04:00",
+              "depart": "04:12"
+            },
+            {
+              "location": "BB",
+              "arrive": "04:20",
+              "depart": "04:30",
+              "note": "Wait for No. 11"
+            },
+            {
+              "location": "XP",
+              "arrive": "04:34",
+              "depart": "04:44",
+              "note": "Wait for No. 122"
+            },
+            {
+              "location": "WP",
+              "arrive": "04:54"
+            }
           ]
         },
         {
@@ -460,14 +902,45 @@
           "class": 2,
           "service": "Pass",
           "direction": "S",
-          "days": [1, 2, 3, 4, 5, 6, 7],
+          "days": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
           "schedule": [
-            { "location": "HC", "depart": "13:08" },
-            { "location": "SK", "arrive": "13:17", "depart": "13:27" },
-            { "location": "JC", "arrive": "13:37", "depart": "13:47" },
-            { "location": "BB", "arrive": "13:55", "depart": "14:05" },
-            { "location": "XP", "arrive": "14:09", "depart": "14:19", "note": "Wait for No. 122" },
-            { "location": "WP", "arrive": "14:29" }
+            {
+              "location": "HC",
+              "depart": "13:08"
+            },
+            {
+              "location": "SK",
+              "arrive": "13:17",
+              "depart": "13:27"
+            },
+            {
+              "location": "JC",
+              "arrive": "13:37",
+              "depart": "13:47"
+            },
+            {
+              "location": "BB",
+              "arrive": "13:55",
+              "depart": "14:05"
+            },
+            {
+              "location": "XP",
+              "arrive": "14:09",
+              "depart": "14:19",
+              "note": "Wait for No. 122"
+            },
+            {
+              "location": "WP",
+              "arrive": "14:29"
+            }
           ]
         },
         {
@@ -475,14 +948,44 @@
           "class": 2,
           "service": "Pass",
           "direction": "S",
-          "days": [1, 2, 3, 4, 5, 6, 7],
+          "days": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
           "schedule": [
-            { "location": "HC", "depart": "22:18" },
-            { "location": "SK", "arrive": "22:27", "depart": "22:37" },
-            { "location": "JC", "arrive": "22:47", "depart": "22:57" },
-            { "location": "BB", "arrive": "23:05", "depart": "23:15" },
-            { "location": "XP", "arrive": "23:19", "depart": "23:29" },
-            { "location": "WP", "arrive": "23:39" }
+            {
+              "location": "HC",
+              "depart": "22:18"
+            },
+            {
+              "location": "SK",
+              "arrive": "22:27",
+              "depart": "22:37"
+            },
+            {
+              "location": "JC",
+              "arrive": "22:47",
+              "depart": "22:57"
+            },
+            {
+              "location": "BB",
+              "arrive": "23:05",
+              "depart": "23:15"
+            },
+            {
+              "location": "XP",
+              "arrive": "23:19",
+              "depart": "23:29"
+            },
+            {
+              "location": "WP",
+              "arrive": "23:39"
+            }
           ]
         },
         {
@@ -490,10 +993,25 @@
           "class": 3,
           "service": "Frght",
           "direction": "S",
-          "days": [1, 2, 3, 4, 5, 6, 7],
+          "days": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
           "schedule": [
-            { "location": "XP",      "depart": "05:08", "note": "Pickup QM1 spur" },
-            { "location": "WP_YARD", "arrive": "05:33" }
+            {
+              "location": "XP",
+              "depart": "05:08",
+              "note": "Pickup QM1 spur"
+            },
+            {
+              "location": "WP_YARD",
+              "arrive": "05:33"
+            }
           ]
         },
         {
@@ -501,13 +1019,39 @@
           "class": 3,
           "service": "Coal",
           "direction": "S",
-          "days": [1, 2, 3, 4, 5, 6, 7],
+          "days": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
           "schedule": [
-            { "location": "MC",      "depart": "03:04", "note": "Pickup QM2 spur" },
-            { "location": "JC",      "depart": "03:26" },
-            { "location": "BB",      "depart": "03:52" },
-            { "location": "XP",      "arrive": "04:02", "depart": "04:14", "note": "Wait for No. 11" },
-            { "location": "WP_YARD", "arrive": "04:39" }
+            {
+              "location": "MC",
+              "depart": "03:04",
+              "note": "Pickup QM2 spur"
+            },
+            {
+              "location": "JC",
+              "depart": "03:26"
+            },
+            {
+              "location": "BB",
+              "depart": "03:52"
+            },
+            {
+              "location": "XP",
+              "arrive": "04:02",
+              "depart": "04:14",
+              "note": "Wait for No. 11"
+            },
+            {
+              "location": "WP_YARD",
+              "arrive": "04:39"
+            }
           ]
         },
         {
@@ -515,10 +1059,25 @@
           "class": 3,
           "service": "Coal",
           "direction": "S",
-          "days": [1, 2, 3, 4, 5, 6, 7],
+          "days": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
           "schedule": [
-            { "location": "XP",      "depart": "14:24", "note": "Pickup QM1 spur; Wait for No. 24" },
-            { "location": "WP_YARD", "arrive": "14:49" }
+            {
+              "location": "XP",
+              "depart": "14:24",
+              "note": "Pickup QM1 spur; Wait for No. 24"
+            },
+            {
+              "location": "WP_YARD",
+              "arrive": "14:49"
+            }
           ]
         },
         {
@@ -526,13 +1085,37 @@
           "class": 3,
           "service": "Coal",
           "direction": "S",
-          "days": [1, 2, 3, 4, 5, 6, 7],
+          "days": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
           "schedule": [
-            { "location": "MC",      "depart": "13:45", "note": "Pickup QM2 spur" },
-            { "location": "JC",      "depart": "14:07" },
-            { "location": "BB",      "depart": "14:33" },
-            { "location": "XP",      "depart": "14:43" },
-            { "location": "WP_YARD", "arrive": "15:08" }
+            {
+              "location": "MC",
+              "depart": "13:45",
+              "note": "Pickup QM2 spur"
+            },
+            {
+              "location": "JC",
+              "depart": "14:07"
+            },
+            {
+              "location": "BB",
+              "depart": "14:33"
+            },
+            {
+              "location": "XP",
+              "depart": "14:43"
+            },
+            {
+              "location": "WP_YARD",
+              "arrive": "15:08"
+            }
           ]
         },
         {
@@ -540,10 +1123,25 @@
           "class": 3,
           "service": "Coke",
           "direction": "S",
-          "days": [1, 2, 3, 4, 5, 6, 7],
+          "days": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
           "schedule": [
-            { "location": "XP",      "depart": "22:08", "note": "Pickup QM1 spur" },
-            { "location": "WP_YARD", "arrive": "22:33" }
+            {
+              "location": "XP",
+              "depart": "22:08",
+              "note": "Pickup QM1 spur"
+            },
+            {
+              "location": "WP_YARD",
+              "arrive": "22:33"
+            }
           ]
         }
       ]
@@ -588,11 +1186,29 @@
           "class": 3,
           "service": "Coal",
           "direction": "W",
-          "days": [1, 2, 3, 4, 5, 6, 7],
+          "days": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
           "schedule": [
-            { "location": "WP_EAST_STG", "depart": "03:45" },
-            { "location": "WP_COE",      "depart": "03:50", "note": "WP Yard East" },
-            { "location": "WP_WEST_STG", "arrive": "04:17" }
+            {
+              "location": "WP_EAST_STG",
+              "depart": "03:45"
+            },
+            {
+              "location": "WP_COE",
+              "depart": "03:50",
+              "note": "WP Yard East"
+            },
+            {
+              "location": "WP_WEST_STG",
+              "arrive": "04:17"
+            }
           ]
         },
         {
@@ -600,11 +1216,29 @@
           "class": 3,
           "service": "Coal",
           "direction": "W",
-          "days": [1, 2, 3, 4, 5, 6, 7],
+          "days": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
           "schedule": [
-            { "location": "WP_EAST_STG", "depart": "12:15" },
-            { "location": "WP_COE",      "depart": "12:20", "note": "WP Yard East" },
-            { "location": "WP_WEST_STG", "arrive": "12:47" }
+            {
+              "location": "WP_EAST_STG",
+              "depart": "12:15"
+            },
+            {
+              "location": "WP_COE",
+              "depart": "12:20",
+              "note": "WP Yard East"
+            },
+            {
+              "location": "WP_WEST_STG",
+              "arrive": "12:47"
+            }
           ]
         },
         {
@@ -612,11 +1246,29 @@
           "class": 1,
           "service": "Pass",
           "direction": "W",
-          "days": [1, 2, 3, 4, 5, 6, 7],
+          "days": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
           "schedule": [
-            { "location": "WP_EAST_STG", "depart": "15:09" },
-            { "location": "WP_COE",      "arrive": "15:12", "depart": "15:29" },
-            { "location": "WP_WEST_STG", "arrive": "15:31" }
+            {
+              "location": "WP_EAST_STG",
+              "depart": "15:09"
+            },
+            {
+              "location": "WP_COE",
+              "arrive": "15:12",
+              "depart": "15:29"
+            },
+            {
+              "location": "WP_WEST_STG",
+              "arrive": "15:31"
+            }
           ]
         },
         {
@@ -624,11 +1276,29 @@
           "class": 1,
           "service": "Pass",
           "direction": "W",
-          "days": [1, 2, 3, 4, 5, 6, 7],
+          "days": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
           "schedule": [
-            { "location": "WP_EAST_STG", "depart": "01:58" },
-            { "location": "WP_COE",      "arrive": "02:01", "depart": "02:17" },
-            { "location": "WP_WEST_STG", "arrive": "02:21" }
+            {
+              "location": "WP_EAST_STG",
+              "depart": "01:58"
+            },
+            {
+              "location": "WP_COE",
+              "arrive": "02:01",
+              "depart": "02:17"
+            },
+            {
+              "location": "WP_WEST_STG",
+              "arrive": "02:21"
+            }
           ]
         },
         {
@@ -636,11 +1306,29 @@
           "class": 2,
           "service": "Pass",
           "direction": "W",
-          "days": [1, 2, 3, 4, 5, 6, 7],
+          "days": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
           "schedule": [
-            { "location": "WP_EAST_STG", "depart": "20:19" },
-            { "location": "WP_COE",      "arrive": "20:22", "depart": "20:37" },
-            { "location": "WP_WEST_STG", "arrive": "20:41" }
+            {
+              "location": "WP_EAST_STG",
+              "depart": "20:19"
+            },
+            {
+              "location": "WP_COE",
+              "arrive": "20:22",
+              "depart": "20:37"
+            },
+            {
+              "location": "WP_WEST_STG",
+              "arrive": "20:41"
+            }
           ]
         },
         {
@@ -648,11 +1336,29 @@
           "class": 3,
           "service": "Coal",
           "direction": "E",
-          "days": [1, 2, 3, 4, 5, 6, 7],
+          "days": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
           "schedule": [
-            { "location": "WP_WEST_STG", "depart": "11:06" },
-            { "location": "WP_COE",      "depart": "11:35", "note": "WP Yard East" },
-            { "location": "WP_EAST_STG", "arrive": "11:43" }
+            {
+              "location": "WP_WEST_STG",
+              "depart": "11:06"
+            },
+            {
+              "location": "WP_COE",
+              "depart": "11:35",
+              "note": "WP Yard East"
+            },
+            {
+              "location": "WP_EAST_STG",
+              "arrive": "11:43"
+            }
           ]
         },
         {
@@ -660,11 +1366,29 @@
           "class": 3,
           "service": "Coal",
           "direction": "E",
-          "days": [1, 2, 3, 4, 5, 6, 7],
+          "days": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
           "schedule": [
-            { "location": "WP_WEST_STG", "depart": "18:53" },
-            { "location": "WP_COE",      "depart": "19:25", "note": "WP Yard East" },
-            { "location": "WP_EAST_STG", "arrive": "19:33" }
+            {
+              "location": "WP_WEST_STG",
+              "depart": "18:53"
+            },
+            {
+              "location": "WP_COE",
+              "depart": "19:25",
+              "note": "WP Yard East"
+            },
+            {
+              "location": "WP_EAST_STG",
+              "arrive": "19:33"
+            }
           ]
         },
         {
@@ -672,11 +1396,29 @@
           "class": 1,
           "service": "Pass",
           "direction": "E",
-          "days": [1, 2, 3, 4, 5, 6, 7],
+          "days": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
           "schedule": [
-            { "location": "WP_WEST_STG", "depart": "11:37" },
-            { "location": "WP_COE",      "arrive": "11:40", "depart": "11:55" },
-            { "location": "WP_EAST_STG", "arrive": "11:59" }
+            {
+              "location": "WP_WEST_STG",
+              "depart": "11:37"
+            },
+            {
+              "location": "WP_COE",
+              "arrive": "11:40",
+              "depart": "11:55"
+            },
+            {
+              "location": "WP_EAST_STG",
+              "arrive": "11:59"
+            }
           ]
         },
         {
@@ -684,11 +1426,29 @@
           "class": 2,
           "service": "Pass",
           "direction": "E",
-          "days": [1, 2, 3, 4, 5, 6, 7],
+          "days": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
           "schedule": [
-            { "location": "WP_WEST_STG", "depart": "22:31" },
-            { "location": "WP_COE",      "arrive": "22:34", "depart": "22:49" },
-            { "location": "WP_EAST_STG", "arrive": "22:53" }
+            {
+              "location": "WP_WEST_STG",
+              "depart": "22:31"
+            },
+            {
+              "location": "WP_COE",
+              "arrive": "22:34",
+              "depart": "22:49"
+            },
+            {
+              "location": "WP_EAST_STG",
+              "arrive": "22:53"
+            }
           ]
         },
         {
@@ -696,11 +1456,29 @@
           "class": 2,
           "service": "Pass",
           "direction": "E",
-          "days": [1, 2, 3, 4, 5, 6, 7],
+          "days": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
           "schedule": [
-            { "location": "WP_WEST_STG", "depart": "17:25" },
-            { "location": "WP_COE",      "arrive": "17:28", "depart": "17:43" },
-            { "location": "WP_EAST_STG", "arrive": "17:47" }
+            {
+              "location": "WP_WEST_STG",
+              "depart": "17:25"
+            },
+            {
+              "location": "WP_COE",
+              "arrive": "17:28",
+              "depart": "17:43"
+            },
+            {
+              "location": "WP_EAST_STG",
+              "arrive": "17:47"
+            }
           ]
         }
       ]
