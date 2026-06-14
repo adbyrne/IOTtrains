@@ -37,6 +37,8 @@ let activeForms = [];   // active form letters from server
 let layoutRules = {};   // layout operating rules from server
 let toLogData = [];     // local mirror of issued TOs (newest first)
 let _signalStates = {};  // { sid: { N: 'raised'|'lowered', S: 'raised'|'lowered' } }
+let stationData = {};   // { sid: { types, flagging_required, siding_length_cars } }
+let extraTimes = {};    // { sid: { N: minutes|null, S: minutes|null } }
 
 // Clock interpolation state — updated on each clock_update event
 let _clockSnap = null;  // { rrMinutes, speed, running, day, receivedAt }
@@ -86,6 +88,8 @@ function handleInitialState(event) {
     activeForms = event.active_forms  || [];
     layoutRules = event.layout_rules  || {};
     toLogData   = event.to_log       || [];
+    stationData = event.station_data  || {};
+    extraTimes  = event.extra_times   || {};
 
     buildStationGrid(stationIds, stationNames);
     updateClock(event.clock);
@@ -201,15 +205,34 @@ function buildStationGrid(ids, names) {
     if (table.querySelectorAll('.station-row').length > 0) return;
     for (const sid of ids) {
         const hasTo = toSignalStations.has(sid);
+        const sd = stationData[sid] || {};
+        const et = extraTimes[sid]  || {};
+
+        // Station sub-text: type codes, flagging mark, siding capacity
+        const typesStr = (sd.types || []).join(' · ');
+        const flagMark = sd.flagging_required ? ' <span class="col-flag" title="Flagging required">⚑</span>' : '';
+        const sidingStr = sd.siding_length_cars != null
+            ? `<span class="col-siding">${sd.siding_length_cars}&nbsp;cars</span>` : '';
+        const metaParts = [typesStr, sidingStr].filter(Boolean).join(' · ');
+        const metaLine = metaParts ? `<br><span class="col-meta">${metaParts}</span>` : '';
+
+        // Extra train running times
+        const nTime = et.N != null ? `<span class="rt-n">↑&nbsp;${et.N}m</span>` : '';
+        const sTime = et.S != null ? `<span class="rt-s">↓&nbsp;${et.S}m</span>` : '';
+        const rtHtml = (nTime || sTime)
+            ? `<span class="col-runtime">${nTime}${sTime}</span>`
+            : `<span class="col-runtime col-runtime-none">—</span>`;
+
         const row = document.createElement('div');
         row.className = 'station-row';
         row.id = `row-${sid}`;
         row.innerHTML = `
             <span class="status-dot" id="dot-${sid}"></span>
             <span class="col-id">${sid}</span>
-            <span class="col-name">${names[sid] || sid}</span>
+            <span class="col-name">${names[sid] || sid}${flagMark}${metaLine}</span>
             <span class="col-to" id="to-${sid}-N">${hasTo ? armHtml(sid, 'N', 'raised') : ''}</span>
             <span class="col-train" id="nt-${sid}-N"></span>
+            ${rtHtml}
             <span class="col-to" id="to-${sid}-S">${hasTo ? armHtml(sid, 'S', 'raised') : ''}</span>
             <span class="col-train" id="nt-${sid}-S"></span>`;
         table.appendChild(row);

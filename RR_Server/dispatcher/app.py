@@ -103,6 +103,8 @@ def build_initial_state() -> dict:
         "station_ids": STATION_IDS,
         "station_names": STATION_NAMES,
         "to_signal_stations": list(TO_SIGNAL_STATIONS),
+        "station_data": timetable.station_display_data(SUBDIVISION, STATION_IDS),
+        "extra_times": timetable.inter_station_times(SUBDIVISION, STATION_IDS),
     }
 
 

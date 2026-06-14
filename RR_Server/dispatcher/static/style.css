@@ -143,7 +143,7 @@ main { padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; }
 
 .station-header, .station-row {
     display: grid;
-    grid-template-columns: 16px 38px 1fr 28px 1fr 28px 1fr;
+    grid-template-columns: 16px 38px 1fr 28px 1fr 54px 28px 1fr;
     align-items: center;
     gap: 0 12px;
     padding: 7px 14px;
@@ -176,7 +176,10 @@ main { padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; }
 .status-dot.online { background: var(--online); }
 
 .col-id   { font-family: monospace; font-size: 0.8rem; font-weight: 700; color: var(--muted); }
-.col-name { font-weight: 500; }
+.col-name { font-weight: 500; line-height: 1.4; }
+.col-meta { font-size: 0.72rem; color: var(--muted); font-weight: 400; font-family: monospace; }
+.col-flag { color: var(--accent); font-size: 0.8rem; margin-left: 4px; }
+.col-siding { /* inherits col-meta */ }
 .col-train { font-family: monospace; display: flex; flex-direction: column; gap: 2px; }
 .col-train .train-num   { font-weight: 600; }
 .col-train .train-times { display: flex; flex-direction: column; gap: 1px; }
@@ -189,6 +192,21 @@ main { padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; }
     font-size: 0.85rem;
     font-weight: 700;
 }
+
+.col-runtime {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    font-family: monospace;
+    font-size: 0.78rem;
+    font-weight: 600;
+    line-height: 1.3;
+}
+.col-runtime-hdr { text-align: center; }
+.col-runtime-none { color: var(--offline); font-style: italic; font-size: 0.75rem; }
+.rt-n { color: #7dcc85; }
+.rt-s { color: #56c8d8; }
 
 /* ── OS log panel ────────────────────────────────────────────────── */
 #log-panels {

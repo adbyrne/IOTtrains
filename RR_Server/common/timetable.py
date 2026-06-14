@@ -111,6 +111,81 @@ def train_schedule(subdivision_id: str, train_number: str) -> Optional[dict]:
     return None
 
 
+def inter_station_times(subdivision_id: str, station_ids: list[str]) -> dict:
+    """
+    Compute estimated running times between adjacent stations for extra train guidance.
+
+    Uses the first Frght train in each direction as the reference; falls back to any
+    train in that direction if Frght doesn't cover a segment (e.g. WP↔XP uses Pass).
+
+    Returns: {station_id: {"N": minutes|None, "S": minutes|None}}
+      N = estimated minutes from this station to the next station northward
+      S = estimated minutes from this station to the next station southward
+    """
+    sub = _subdivision(subdivision_id)
+    trains = sub["trains"]
+
+    def sched_of(train: dict) -> dict:
+        return {s["location"]: s for s in train.get("schedule", [])}
+
+    def _depart(stop: dict) -> Optional[int]:
+        t = stop.get("depart") or stop.get("arrive")
+        return _time_minutes(t) if t else None
+
+    def _arrive(stop: dict) -> Optional[int]:
+        t = stop.get("arrive") or stop.get("depart")
+        return _time_minutes(t) if t else None
+
+    def run_time(from_id: str, to_id: str, direction: str) -> Optional[int]:
+        # Prefer Frght; fall back to any direction-matching train
+        ordered = sorted(
+            [t for t in trains if t["direction"] == direction],
+            key=lambda t: (0 if t["service"] == "Frght" else 1),
+        )
+        for train in ordered:
+            sm = sched_of(train)
+            f = sm.get(from_id)
+            t = sm.get(to_id)
+            if not f or not t:
+                continue
+            dep = _depart(f)
+            arr = _arrive(t)
+            if dep is None or arr is None:
+                continue
+            minutes = arr - dep
+            if minutes < 0:
+                minutes += 24 * 60
+            if minutes > 0:
+                return minutes
+        return None
+
+    result: dict = {sid: {"N": None, "S": None} for sid in station_ids}
+    for i in range(len(station_ids) - 1):
+        south_id = station_ids[i]
+        north_id = station_ids[i + 1]
+        result[south_id]["N"] = run_time(south_id, north_id, "N")
+        result[north_id]["S"] = run_time(north_id, south_id, "S")
+    return result
+
+
+def station_display_data(subdivision_id: str, station_ids: list[str]) -> dict:
+    """
+    Return display metadata for specified stations.
+
+    Returns: {station_id: {"types": [...], "flagging_required": bool, "siding_length_cars": int|None}}
+    """
+    loc_map = {l["id"]: l for l in _subdivision(subdivision_id)["locations"]}
+    result = {}
+    for sid in station_ids:
+        loc = loc_map.get(sid, {})
+        result[sid] = {
+            "types": [t for t in loc.get("types", []) if t != "I"],
+            "flagging_required": loc.get("flagging_required", False),
+            "siding_length_cars": loc.get("siding_length_cars"),
+        }
+    return result
+
+
 def next_train(
     subdivision_id: str,
     location_id: str,
