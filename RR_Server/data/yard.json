@@ -1,8 +1,8 @@
 {
-  "version": "1.1",
+  "version": "1.2",
   "yard": "WP",
   "yard_name": "Williamsport Yard",
-  "notes": "Track lengths from XTrkCAD export 2026-06-13 (length_ft + track_id). RUN and T8 have no XTrkCAD measurement. length_model_in = round(length_ft * 12 / 87.1). capacity_cars from XTrkCAD car_capacity.",
+  "notes": "Track lengths from XTrkCAD export 2026-06-14 (length_ft + track_id). RUN and T8 have no XTrkCAD measurement. length_model_in = round(length_ft * 12 / 87.1). capacity_cars from XTrkCAD car_capacity.",
   "tracks": [
     {
       "id": "RUN",
@@ -19,7 +19,7 @@
       "function": "caboose",
       "notes": "Adjacent to run-around track.",
       "length_ft": 229.697,
-      "track_id": 365,
+      "track_id": 371,
       "length_model_in": 32,
       "capacity_cars": 5
     },
@@ -29,7 +29,7 @@
       "function": "local",
       "notes": "YM staging.",
       "length_ft": 299.402,
-      "track_id": 364,
+      "track_id": 370,
       "length_model_in": 41,
       "capacity_cars": 6
     },
@@ -39,7 +39,7 @@
       "function": "local",
       "notes": "YM staging.",
       "length_ft": 369.443,
-      "track_id": 363,
+      "track_id": 369,
       "length_model_in": 51,
       "capacity_cars": 8
     },
@@ -49,7 +49,7 @@
       "function": "local",
       "notes": "YM staging.",
       "length_ft": 442.578,
-      "track_id": 362,
+      "track_id": 368,
       "length_model_in": 61,
       "capacity_cars": 10
     },
@@ -59,17 +59,27 @@
       "function": "arrival_departure",
       "notes": "NYE arrival/departure track.",
       "length_ft": 512.262,
-      "track_id": 361,
+      "track_id": 367,
       "length_model_in": 71,
       "capacity_cars": 11
+    },
+    {
+      "id": "YL",
+      "label": "Yard Lead",
+      "function": "yard_lead",
+      "notes": "Main yard lead.",
+      "length_ft": 263.459,
+      "track_id": 431,
+      "length_model_in": 36,
+      "capacity_cars": 6
     },
     {
       "id": "T6",
       "label": "Track 6 (INTX-E)",
       "function": "interchange_east",
-      "notes": "C&O eastbound interchange. XTrkCAD labels interchange portion only (track 355, 268 ft).",
+      "notes": "C&O eastbound interchange. XTrkCAD labels interchange portion only (track 361, 268 ft).",
       "length_ft": 267.928,
-      "track_id": 355,
+      "track_id": 361,
       "length_model_in": 37,
       "capacity_cars": 6
     },
@@ -79,7 +89,7 @@
       "function": "interchange_west",
       "notes": "C&O westbound interchange.",
       "length_ft": 268.535,
-      "track_id": 353,
+      "track_id": 359,
       "length_model_in": 37,
       "capacity_cars": 6
     },
