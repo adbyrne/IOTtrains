@@ -64,7 +64,7 @@
         {
           "id": "KIEL",
           "name": "Kiel Co",
-          "milepost": 62.8,
+          "milepost": 5.2,
           "milepost_exit": null,
           "switchback": true,
           "within_limits_of": null,
@@ -82,7 +82,7 @@
         {
           "id": "OHARAS_LF",
           "name": "O'Haras Lumber and Feed",
-          "milepost": 79.6,
+          "milepost": 6.6,
           "milepost_exit": null,
           "switchback": false,
           "within_limits_of": null,
@@ -100,7 +100,7 @@
         {
           "id": "OHARAS_CS",
           "name": "O'Haras Coal Service",
-          "milepost": 79.6,
+          "milepost": 6.6,
           "milepost_exit": null,
           "switchback": false,
           "within_limits_of": null,
@@ -118,8 +118,8 @@
         {
           "id": "XP",
           "name": "Xina Pass",
-          "milepost": 541.7,
-          "milepost_exit": 637.2,
+          "milepost": 45.1,
+          "milepost_exit": 53.1,
           "switchback": false,
           "within_limits_of": null,
           "types": [
@@ -137,7 +137,7 @@
         {
           "id": "QM1",
           "name": "Quilly Mine #1",
-          "milepost": 670.5,
+          "milepost": 55.9,
           "milepost_exit": null,
           "switchback": true,
           "within_limits_of": "XP",
@@ -157,8 +157,8 @@
         {
           "id": "BB",
           "name": "Becs Bend",
-          "milepost": 739.9,
-          "milepost_exit": 776.8,
+          "milepost": 61.7,
+          "milepost_exit": 64.7,
           "switchback": true,
           "within_limits_of": null,
           "types": [
@@ -175,8 +175,8 @@
         {
           "id": "JC",
           "name": "Jacks Creek",
-          "milepost": 1029.9,
-          "milepost_exit": 1129.6,
+          "milepost": 85.8,
+          "milepost_exit": 94.1,
           "switchback": false,
           "within_limits_of": null,
           "types": [
@@ -193,7 +193,7 @@
         {
           "id": "TIMBER",
           "name": "Timber Ltd",
-          "milepost": 1303.0,
+          "milepost": 108.6,
           "milepost_exit": null,
           "switchback": false,
           "within_limits_of": "JC",
@@ -211,8 +211,8 @@
         {
           "id": "MC",
           "name": "Michelles Cove",
-          "milepost": 1228.2,
-          "milepost_exit": 1318.5,
+          "milepost": 102.4,
+          "milepost_exit": 109.9,
           "switchback": true,
           "within_limits_of": null,
           "types": [
@@ -229,7 +229,7 @@
         {
           "id": "QM2",
           "name": "Quilly Mine #2",
-          "milepost": 1256.7,
+          "milepost": 104.7,
           "milepost_exit": null,
           "switchback": false,
           "within_limits_of": "MC",
@@ -247,8 +247,8 @@
         {
           "id": "SK",
           "name": "Stans Knob",
-          "milepost": 1998.9,
-          "milepost_exit": 2043.8,
+          "milepost": 166.6,
+          "milepost_exit": 170.3,
           "switchback": true,
           "within_limits_of": null,
           "types": [
@@ -265,7 +265,7 @@
         {
           "id": "HC",
           "name": "Hemlock Crest",
-          "milepost": 2496.6,
+          "milepost": 208.1,
           "milepost_exit": null,
           "switchback": false,
           "within_limits_of": null,
