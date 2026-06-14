@@ -1,14 +1,15 @@
 {
-  "version": "1.0",
+  "version": "1.1",
   "yard": "WP",
   "yard_name": "Williamsport Yard",
-  "notes": "Lengths are approximate model-scale (HO). XTrkCAD survey needed to confirm exact values. Capacity = floor(length_in / 5.5) based on 40-ft car standard. Double-ended yard: yard lead on south switches; north switches for branch entry/exit.",
+  "notes": "Track lengths from XTrkCAD export 2026-06-13 (length_ft + track_id). RUN and T8 have no XTrkCAD measurement. length_model_in = round(length_ft * 12 / 87.1). capacity_cars from XTrkCAD car_capacity.",
   "tracks": [
     {
       "id": "RUN",
       "label": "Run-around",
       "function": "runaround",
       "notes": "Switch access to local industries, roundhouse, ice house, tipple. Length TBD from XTrkCAD.",
+      "length_ft": null,
       "length_model_in": null,
       "capacity_cars": null
     },
@@ -17,7 +18,9 @@
       "label": "Caboose",
       "function": "caboose",
       "notes": "Adjacent to run-around track.",
-      "length_model_in": 31,
+      "length_ft": 229.697,
+      "track_id": 365,
+      "length_model_in": 32,
       "capacity_cars": 5
     },
     {
@@ -25,7 +28,9 @@
       "label": "Track 2",
       "function": "local",
       "notes": "YM staging.",
-      "length_model_in": 33,
+      "length_ft": 299.402,
+      "track_id": 364,
+      "length_model_in": 41,
       "capacity_cars": 6
     },
     {
@@ -33,49 +38,57 @@
       "label": "Track 3",
       "function": "local",
       "notes": "YM staging.",
-      "length_model_in": 50,
-      "capacity_cars": 9
+      "length_ft": 369.443,
+      "track_id": 363,
+      "length_model_in": 51,
+      "capacity_cars": 8
     },
     {
       "id": "T4",
       "label": "Track 4",
       "function": "local",
       "notes": "YM staging.",
-      "length_model_in": 52,
-      "capacity_cars": 9
+      "length_ft": 442.578,
+      "track_id": 362,
+      "length_model_in": 61,
+      "capacity_cars": 10
     },
     {
       "id": "T5",
       "label": "Track 5 (A/D)",
       "function": "arrival_departure",
       "notes": "NYE arrival/departure track.",
-      "length_model_in": 70,
-      "capacity_cars": 12
+      "length_ft": 512.262,
+      "track_id": 361,
+      "length_model_in": 71,
+      "capacity_cars": 11
     },
     {
       "id": "T6",
-      "label": "Track 6 (A/D / INTX-E)",
-      "function": "arrival_departure",
-      "alt_function": "interchange_east",
-      "notes": "Dual use: full 70\" as NYE A/D track; 36\" usable as C&O eastbound interchange.",
-      "length_model_in": 70,
-      "capacity_cars": 12,
-      "intx_length_model_in": 36,
-      "intx_capacity_cars": 6
+      "label": "Track 6 (INTX-E)",
+      "function": "interchange_east",
+      "notes": "C&O eastbound interchange. XTrkCAD labels interchange portion only (track 355, 268 ft).",
+      "length_ft": 267.928,
+      "track_id": 355,
+      "length_model_in": 37,
+      "capacity_cars": 6
     },
     {
       "id": "T7",
       "label": "Track 7 (INTX-W)",
       "function": "interchange_west",
       "notes": "C&O westbound interchange.",
-      "length_model_in": 36,
+      "length_ft": 268.535,
+      "track_id": 353,
+      "length_model_in": 37,
       "capacity_cars": 6
     },
     {
       "id": "T8",
       "label": "Track 8 (C&O)",
       "function": "co_siding",
-      "notes": "C&O siding / locomotive and car storage.",
+      "notes": "C&O siding / locomotive and car storage. Not in XTrkCAD export (C&O property). Length estimated.",
+      "length_ft": null,
       "length_model_in": 110,
       "capacity_cars": 20
     }

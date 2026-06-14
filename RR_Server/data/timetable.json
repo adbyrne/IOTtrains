@@ -100,7 +100,7 @@
         {
           "id": "OHARAS_CS",
           "name": "O'Haras Coal Service",
-          "milepost": 932.1,
+          "milepost": 578.0,
           "milepost_exit": null,
           "switchback": false,
           "within_limits_of": null,
@@ -119,7 +119,7 @@
           "id": "XP",
           "name": "Xina Pass",
           "milepost": 3931.7,
-          "milepost_exit": 4097.6,
+          "milepost_exit": 4624.7,
           "switchback": false,
           "within_limits_of": null,
           "types": [
@@ -129,7 +129,7 @@
           "cyd": true,
           "show_times": true,
           "show_both_times": true,
-          "siding_length_cars": 3,
+          "siding_length_cars": 15,
           "flagging_required": false,
           "service_facilities": [],
           "crew_notes": []
@@ -158,7 +158,7 @@
           "id": "BB",
           "name": "Becs Bend",
           "milepost": 5370.7,
-          "milepost_exit": 5580.4,
+          "milepost_exit": 5638.6,
           "switchback": true,
           "within_limits_of": null,
           "types": [
@@ -167,7 +167,7 @@
           "cyd": true,
           "show_times": true,
           "show_both_times": true,
-          "siding_length_cars": 4,
+          "siding_length_cars": 6,
           "flagging_required": false,
           "service_facilities": [],
           "crew_notes": []
@@ -211,9 +211,8 @@
         {
           "id": "MC",
           "name": "Michelles Cove",
-          "milepost": 9132.9,
-          "milepost_exit": null,
-          "milepost_note": "Switchback \u2014 two-switch geometry: entry at main switch (mp 9132.9), exit at main-to-passing-track switch (mp TBD from XTrkCAD topology analysis)",
+          "milepost": 8914.9,
+          "milepost_exit": 9570.3,
           "switchback": true,
           "within_limits_of": null,
           "types": [
@@ -222,7 +221,7 @@
           "cyd": true,
           "show_times": true,
           "show_both_times": true,
-          "siding_length_cars": null,
+          "siding_length_cars": 11,
           "flagging_required": true,
           "service_facilities": [],
           "crew_notes": []
@@ -248,8 +247,8 @@
         {
           "id": "SK",
           "name": "Stans Knob",
-          "milepost": 14988.4,
-          "milepost_exit": 15135.7,
+          "milepost": 14508.7,
+          "milepost_exit": 14834.9,
           "switchback": true,
           "within_limits_of": null,
           "types": [
@@ -258,7 +257,7 @@
           "cyd": true,
           "show_times": true,
           "show_both_times": true,
-          "siding_length_cars": 3,
+          "siding_length_cars": 7,
           "flagging_required": false,
           "service_facilities": [],
           "crew_notes": []
@@ -267,7 +266,7 @@
           "id": "HC",
           "name": "Hemlock Crest",
           "milepost": 18121.4,
-          "milepost_exit": 18285.3,
+          "milepost_exit": null,
           "switchback": false,
           "within_limits_of": null,
           "types": [
@@ -277,7 +276,7 @@
           "cyd": true,
           "show_times": true,
           "show_both_times": false,
-          "siding_length_cars": 3,
+          "siding_length_cars": 7,
           "flagging_required": false,
           "service_facilities": [],
           "crew_notes": []
