@@ -64,9 +64,8 @@
         {
           "id": "KIEL",
           "name": "Kiel Co",
-          "milepost": 5.2,
+          "milepost": 5.231,
           "milepost_exit": null,
-          "switchback": true,
           "within_limits_of": null,
           "types": [
             "I"
@@ -77,14 +76,13 @@
           "flagging_required": false,
           "service_facilities": [],
           "crew_notes": [],
-          "car_spots": 2
+          "car_spots": 6
         },
         {
           "id": "OHARAS_LF",
           "name": "O'Haras Lumber and Feed",
-          "milepost": 6.6,
+          "milepost": 6.636,
           "milepost_exit": null,
-          "switchback": false,
           "within_limits_of": null,
           "types": [
             "I"
@@ -95,14 +93,13 @@
           "flagging_required": false,
           "service_facilities": [],
           "crew_notes": [],
-          "car_spots": 2
+          "car_spots": 6
         },
         {
           "id": "OHARAS_CS",
           "name": "O'Haras Coal Service",
-          "milepost": 6.6,
+          "milepost": 6.636,
           "milepost_exit": null,
-          "switchback": false,
           "within_limits_of": null,
           "types": [
             "I"
@@ -113,13 +110,13 @@
           "flagging_required": false,
           "service_facilities": [],
           "crew_notes": [],
-          "car_spots": 1
+          "car_spots": 6
         },
         {
           "id": "XP",
           "name": "Xina Pass",
-          "milepost": 45.1,
-          "milepost_exit": 53.1,
+          "milepost": 45.14,
+          "milepost_exit": 53.096,
           "switchback": false,
           "within_limits_of": null,
           "types": [
@@ -137,9 +134,8 @@
         {
           "id": "QM1",
           "name": "Quilly Mine #1",
-          "milepost": 55.9,
+          "milepost": 55.874,
           "milepost_exit": null,
-          "switchback": true,
           "within_limits_of": "XP",
           "types": [
             "I"
@@ -157,8 +153,8 @@
         {
           "id": "BB",
           "name": "Becs Bend",
-          "milepost": 61.7,
-          "milepost_exit": 64.7,
+          "milepost": 61.661,
+          "milepost_exit": 64.737,
           "switchback": true,
           "within_limits_of": null,
           "types": [
@@ -175,8 +171,8 @@
         {
           "id": "JC",
           "name": "Jacks Creek",
-          "milepost": 85.8,
-          "milepost_exit": 94.1,
+          "milepost": 85.825,
+          "milepost_exit": 94.133,
           "switchback": false,
           "within_limits_of": null,
           "types": [
@@ -191,11 +187,27 @@
           "crew_notes": []
         },
         {
-          "id": "TIMBER",
-          "name": "Timber Ltd",
-          "milepost": 108.6,
+          "id": "DAVIS_LF",
+          "name": "Davis Lumber",
+          "milepost": 88.323,
           "milepost_exit": null,
-          "switchback": false,
+          "within_limits_of": "JC",
+          "types": [
+            "I"
+          ],
+          "cyd": false,
+          "show_times": false,
+          "show_both_times": false,
+          "flagging_required": false,
+          "service_facilities": [],
+          "crew_notes": [],
+          "car_spots": 13
+        },
+        {
+          "id": "DAVIS_CT1",
+          "name": "Davis Coal Track 1",
+          "milepost": 89.862,
+          "milepost_exit": null,
           "within_limits_of": "JC",
           "types": [
             "I"
@@ -209,10 +221,44 @@
           "car_spots": 3
         },
         {
+          "id": "DAVIS_CT2",
+          "name": "Davis Coal Track 2",
+          "milepost": 90.455,
+          "milepost_exit": null,
+          "within_limits_of": "JC",
+          "types": [
+            "I"
+          ],
+          "cyd": false,
+          "show_times": false,
+          "show_both_times": false,
+          "flagging_required": false,
+          "service_facilities": [],
+          "crew_notes": [],
+          "car_spots": 3
+        },
+        {
+          "id": "TIMBER",
+          "name": "Timber Ltd",
+          "milepost": 108.584,
+          "milepost_exit": null,
+          "within_limits_of": "JC",
+          "types": [
+            "I"
+          ],
+          "cyd": false,
+          "show_times": false,
+          "show_both_times": false,
+          "flagging_required": false,
+          "service_facilities": [],
+          "crew_notes": [],
+          "car_spots": 16
+        },
+        {
           "id": "MC",
           "name": "Michelles Cove",
-          "milepost": 102.4,
-          "milepost_exit": 109.9,
+          "milepost": 102.353,
+          "milepost_exit": 109.878,
           "switchback": true,
           "within_limits_of": null,
           "types": [
@@ -228,10 +274,9 @@
         },
         {
           "id": "QM2",
-          "name": "Quilly Mine #2",
-          "milepost": 104.7,
+          "name": "Quilly Mine 2",
+          "milepost": 104.724,
           "milepost_exit": null,
-          "switchback": false,
           "within_limits_of": "MC",
           "types": [
             "I"
@@ -242,13 +287,13 @@
           "flagging_required": false,
           "service_facilities": [],
           "crew_notes": [],
-          "car_spots": 2
+          "car_spots": 1
         },
         {
           "id": "SK",
           "name": "Stans Knob",
-          "milepost": 166.6,
-          "milepost_exit": 170.3,
+          "milepost": 166.575,
+          "milepost_exit": 170.32,
           "switchback": true,
           "within_limits_of": null,
           "types": [
@@ -265,7 +310,7 @@
         {
           "id": "HC",
           "name": "Hemlock Crest",
-          "milepost": 208.1,
+          "milepost": 208.053,
           "milepost_exit": null,
           "switchback": false,
           "within_limits_of": null,
@@ -319,13 +364,18 @@
               "depart": "07:56"
             },
             {
+              "location": "MC",
+              "arrive": "08:01",
+              "depart": "08:01"
+            },
+            {
               "location": "SK",
-              "arrive": "08:03",
-              "depart": "08:13"
+              "arrive": "08:12",
+              "depart": "08:22"
             },
             {
               "location": "HC",
-              "arrive": "08:19"
+              "arrive": "08:28"
             }
           ]
         },
@@ -364,13 +414,18 @@
               "depart": "16:31"
             },
             {
+              "location": "MC",
+              "arrive": "16:36",
+              "depart": "16:36"
+            },
+            {
               "location": "SK",
-              "arrive": "16:38",
-              "depart": "16:48"
+              "arrive": "16:47",
+              "depart": "16:57"
             },
             {
               "location": "HC",
-              "arrive": "16:54"
+              "arrive": "17:03"
             }
           ]
         },
@@ -410,13 +465,18 @@
               "depart": "04:41"
             },
             {
+              "location": "MC",
+              "arrive": "04:46",
+              "depart": "04:46"
+            },
+            {
               "location": "SK",
-              "arrive": "04:49",
-              "depart": "05:29"
+              "arrive": "04:57",
+              "depart": "05:37"
             },
             {
               "location": "HC",
-              "arrive": "05:36"
+              "arrive": "05:43"
             }
           ]
         },
@@ -455,13 +515,18 @@
               "depart": "02:23"
             },
             {
+              "location": "MC",
+              "arrive": "02:31",
+              "depart": "02:31"
+            },
+            {
               "location": "SK",
-              "arrive": "02:33",
-              "depart": "02:43"
+              "arrive": "02:48",
+              "depart": "02:58"
             },
             {
               "location": "HC",
-              "arrive": "02:52"
+              "arrive": "03:07"
             }
           ]
         },
@@ -500,13 +565,18 @@
               "depart": "11:52"
             },
             {
+              "location": "MC",
+              "arrive": "12:00",
+              "depart": "12:00"
+            },
+            {
               "location": "SK",
-              "arrive": "12:02",
-              "depart": "12:12"
+              "arrive": "12:17",
+              "depart": "12:27"
             },
             {
               "location": "HC",
-              "arrive": "12:21"
+              "arrive": "12:36"
             }
           ]
         },
@@ -545,13 +615,18 @@
               "depart": "21:07"
             },
             {
+              "location": "MC",
+              "arrive": "21:15",
+              "depart": "21:15"
+            },
+            {
               "location": "SK",
-              "arrive": "21:17",
-              "depart": "21:27"
+              "arrive": "21:32",
+              "depart": "21:42"
             },
             {
               "location": "HC",
-              "arrive": "21:36"
+              "arrive": "21:51"
             }
           ]
         },
@@ -737,24 +812,29 @@
               "depart": "09:16"
             },
             {
+              "location": "MC",
+              "arrive": "09:27",
+              "depart": "09:27"
+            },
+            {
               "location": "JC",
-              "arrive": "09:23",
-              "depart": "09:33"
+              "arrive": "09:32",
+              "depart": "09:42"
             },
             {
               "location": "BB",
-              "arrive": "09:38",
-              "depart": "09:48"
+              "arrive": "09:47",
+              "depart": "09:57"
             },
             {
               "location": "XP",
-              "arrive": "09:50",
-              "depart": "10:00",
+              "arrive": "09:59",
+              "depart": "10:09",
               "note": "Wait for No. 1"
             },
             {
               "location": "WP",
-              "arrive": "10:09"
+              "arrive": "10:18"
             }
           ]
         },
@@ -783,23 +863,28 @@
               "depart": "18:01"
             },
             {
+              "location": "MC",
+              "arrive": "18:12",
+              "depart": "18:12"
+            },
+            {
               "location": "JC",
-              "arrive": "18:08",
-              "depart": "18:18"
+              "arrive": "18:17",
+              "depart": "18:27"
             },
             {
               "location": "BB",
-              "arrive": "18:23",
-              "depart": "18:33"
+              "arrive": "18:32",
+              "depart": "18:42"
             },
             {
               "location": "XP",
-              "arrive": "18:35",
-              "depart": "18:45"
+              "arrive": "18:44",
+              "depart": "18:54"
             },
             {
               "location": "WP",
-              "arrive": "18:54"
+              "arrive": "19:03"
             }
           ]
         },
@@ -828,24 +913,29 @@
               "depart": "06:34"
             },
             {
+              "location": "MC",
+              "arrive": "06:51",
+              "depart": "06:51"
+            },
+            {
               "location": "JC",
-              "arrive": "06:44",
-              "depart": "06:54"
+              "arrive": "06:59",
+              "depart": "07:09"
             },
             {
               "location": "BB",
-              "arrive": "07:02",
-              "depart": "07:12"
+              "arrive": "07:17",
+              "depart": "07:27"
             },
             {
               "location": "XP",
-              "arrive": "07:16",
-              "depart": "07:45",
+              "arrive": "07:31",
+              "depart": "08:00",
               "note": "Wait for No. 1"
             },
             {
               "location": "WP_YARD",
-              "arrive": "07:55"
+              "arrive": "08:10"
             }
           ]
         },
@@ -874,25 +964,30 @@
               "depart": "03:50"
             },
             {
+              "location": "MC",
+              "arrive": "04:07",
+              "depart": "04:07"
+            },
+            {
               "location": "JC",
-              "arrive": "04:00",
-              "depart": "04:12"
+              "arrive": "04:15",
+              "depart": "04:27"
             },
             {
               "location": "BB",
-              "arrive": "04:20",
-              "depart": "04:30",
+              "arrive": "04:35",
+              "depart": "04:45",
               "note": "Wait for No. 11"
             },
             {
               "location": "XP",
-              "arrive": "04:34",
-              "depart": "04:44",
+              "arrive": "04:49",
+              "depart": "04:59",
               "note": "Wait for No. 122"
             },
             {
               "location": "WP",
-              "arrive": "04:54"
+              "arrive": "05:09"
             }
           ]
         },
@@ -921,24 +1016,29 @@
               "depart": "13:27"
             },
             {
+              "location": "MC",
+              "arrive": "13:44",
+              "depart": "13:44"
+            },
+            {
               "location": "JC",
-              "arrive": "13:37",
-              "depart": "13:47"
+              "arrive": "13:52",
+              "depart": "14:02"
             },
             {
               "location": "BB",
-              "arrive": "13:55",
-              "depart": "14:05"
+              "arrive": "14:10",
+              "depart": "14:20"
             },
             {
               "location": "XP",
-              "arrive": "14:09",
-              "depart": "14:19",
+              "arrive": "14:24",
+              "depart": "14:34",
               "note": "Wait for No. 122"
             },
             {
               "location": "WP",
-              "arrive": "14:29"
+              "arrive": "14:44"
             }
           ]
         },
@@ -967,30 +1067,35 @@
               "depart": "22:37"
             },
             {
+              "location": "MC",
+              "arrive": "22:54",
+              "depart": "22:54"
+            },
+            {
               "location": "JC",
-              "arrive": "22:47",
-              "depart": "22:57"
+              "arrive": "23:02",
+              "depart": "23:12"
             },
             {
               "location": "BB",
-              "arrive": "23:05",
-              "depart": "23:15"
+              "arrive": "23:20",
+              "depart": "23:30"
             },
             {
               "location": "XP",
-              "arrive": "23:19",
-              "depart": "23:29"
+              "arrive": "23:34",
+              "depart": "23:44"
             },
             {
               "location": "WP",
-              "arrive": "23:39"
+              "arrive": "23:54"
             }
           ]
         },
         {
           "number": "102",
           "class": 3,
-          "service": "Frght",
+          "service": "Coal",
           "direction": "S",
           "days": [
             1,
