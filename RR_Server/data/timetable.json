@@ -242,7 +242,7 @@
           "name": "Timber Ltd",
           "milepost": 108.584,
           "milepost_exit": null,
-          "within_limits_of": "JC",
+          "within_limits_of": "MC",
           "types": [
             "I"
           ],
@@ -268,7 +268,7 @@
           "show_times": true,
           "show_both_times": true,
           "siding_length_cars": 11,
-          "flagging_required": true,
+          "flagging_required": false,
           "service_facilities": [],
           "crew_notes": []
         },
@@ -653,7 +653,8 @@
               "location": "XP",
               "arrive": "03:35",
               "depart": "03:38",
-              "note": "Setout QM1 spur"
+              "note": "Setout QM1 spur",
+              "terminal": true
             }
           ]
         },
@@ -718,7 +719,8 @@
               "location": "XP",
               "arrive": "12:40",
               "depart": "12:43",
-              "note": "Setout QM1 spur"
+              "note": "Setout QM1 spur",
+              "terminal": true
             }
           ]
         },
@@ -783,7 +785,8 @@
               "location": "XP",
               "arrive": "21:00",
               "depart": "21:03",
-              "note": "Setout QM1 spur"
+              "note": "Setout QM1 spur",
+              "terminal": true
             }
           ]
         },
