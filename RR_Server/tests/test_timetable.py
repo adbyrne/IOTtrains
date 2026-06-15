@@ -98,9 +98,9 @@ def test_train_schedule_train2_full():
     t = timetable.train_schedule("NLS", "2")
     stops = {s["location"]: s for s in t["schedule"]}
     assert stops["HC"]["depart"] == "09:00"
-    assert stops["XP"]["arrive"] == "09:50"
-    assert stops["XP"]["depart"] == "10:00"
-    assert stops["WP"]["arrive"] == "10:09"
+    assert stops["XP"]["arrive"] == "09:59"
+    assert stops["XP"]["depart"] == "10:09"
+    assert stops["WP"]["arrive"] == "10:18"
 
 
 # ── next_train ────────────────────────────────────────────────────────────────
@@ -150,9 +150,9 @@ def test_next_train_terminus_arrive_is_valid():
 
 
 def test_next_train_holding_remains_visible():
-    # Train 2 arrives XP at 09:50, departs 10:00. At 09:55 (after arrive, before depart)
+    # Train 2 arrives XP at 09:59, departs 10:09. At 10:04 (after arrive, before depart)
     # the train is still at the station — it must still be returned as next.
-    result = timetable.next_train("NLS", "XP", "S", "09:55", 1)
+    result = timetable.next_train("NLS", "XP", "S", "10:04", 1)
     assert result is not None
     assert result["number"] == "2"
 
@@ -175,13 +175,13 @@ def test_next_train_after_holding_departs():
 
 
 def test_next_train_xp_southbound():
-    # At XP heading south around 09:45 → train 2 (arrive 09:50, depart 10:00).
+    # At XP heading south around 09:45 → train 2 (arrive 09:59, depart 10:09).
     # Both times returned; dispatcher shows Ar for meet planning, CYD time screen shows Ar.
     result = timetable.next_train("NLS", "XP", "S", "09:45", 1)
     assert result is not None
     assert result["number"] == "2"
-    assert result["arrive"] == "09:50"
-    assert result["depart"] == "10:00"
+    assert result["arrive"] == "09:59"
+    assert result["depart"] == "10:09"
 
 
 # ── location_by_id ───────────────────────────────────────────────────────────
