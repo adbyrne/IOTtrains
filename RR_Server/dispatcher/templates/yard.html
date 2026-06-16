@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>NY&amp;E Yardmaster</title>
+    <link rel="stylesheet" href="/static/style.css?v={{ version }}">
+    <link rel="stylesheet" href="/static/yard.css?v={{ version }}">
+</head>
+<body class="yard-body">
+
+<header id="yard-header">
+    <span id="yard-status-dot" class="status-dot"></span>
+    <span id="yard-clock-time">--:-- --</span>
+    <span id="yard-clock-day">—</span>
+    <h1>WP Yardmaster</h1>
+    <button id="btn-extra-request" class="btn primary">Extra Request</button>
+</header>
+
+<main id="yard-main">
+    <section id="panel-departing" class="yard-panel">
+        <div class="yard-panel-header">Departing Trains</div>
+        <div id="next-up-card"></div>
+        <div id="departing-list" class="yard-scroll"></div>
+    </section>
+
+    <section id="panel-track-board" class="yard-panel">
+        <div class="yard-panel-header">Track Board</div>
+        <div id="track-board-list" class="yard-scroll"></div>
+    </section>
+
+    <section id="panel-arriving" class="yard-panel">
+        <div class="yard-panel-header">Arriving Trains</div>
+        <div id="arriving-list" class="yard-scroll"></div>
+    </section>
+</main>
+
+<footer id="yard-footer">
+    <div class="coe-row"><span class="coe-label">Westward</span><span id="coe-wb-trains"></span></div>
+    <div class="coe-row"><span class="coe-label">Eastward</span><span id="coe-eb-trains"></span></div>
+</footer>
+
+<!-- ── Consist Build Modal — Scheduled Trains ─────────────────────────────── -->
+<div id="modal-consist-scheduled" class="modal-overlay" hidden>
+  <div class="modal modal-wide yard-modal">
+    <div class="modal-header">
+      <span id="cs-title">Build Consist</span>
+      <button class="modal-close" data-close="modal-consist-scheduled">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="yard-numpad-layout">
+        <div class="yard-form-fields">
+          <div class="form-row">
+            <label>Engine</label>
+            <input type="text" id="cs-engine" class="yard-numpad-target" data-field="engine" readonly>
+          </div>
+          <div class="form-row">
+            <label>Caboose</label>
+            <input type="text" id="cs-caboose" class="yard-numpad-target" data-field="caboose" readonly>
+          </div>
+          <div class="form-row">
+            <label>Loads</label>
+            <input type="text" id="cs-loads" class="yard-numpad-target" data-field="cars_loaded" readonly>
+          </div>
+          <div class="form-row">
+            <label>Empties</label>
+            <input type="text" id="cs-empties" class="yard-numpad-target" data-field="cars_empty" readonly>
+          </div>
+          <div class="form-row">
+            <label>Track</label>
+            <div id="cs-track-select" class="yard-track-select"></div>
+          </div>
+        </div>
+        <div class="yard-numpad" id="cs-numpad">
+          <div class="yard-numpad-active">Active: <span id="cs-active-field">Engine</span></div>
+          <div class="yard-numpad-grid"></div>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button id="btn-cs-draft" class="btn">Save Draft</button>
+        <button id="btn-cs-submit" class="btn primary">Submit — Mark Ready</button>
+        <span id="cs-err" class="form-err"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Consist Build Modal — Extra Trains ──────────────────────────────────── -->
+<div id="modal-consist-extra" class="modal-overlay" hidden>
+  <div class="modal modal-wide yard-modal">
+    <div class="modal-header">
+      <span id="ce-title">Build Extra Consist</span>
+      <button class="modal-close" data-close="modal-consist-extra">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div id="ce-subtitle" class="yard-modal-subtitle"></div>
+      <div class="yard-numpad-layout">
+        <div class="yard-form-fields">
+          <div class="form-row">
+            <label>Engine</label>
+            <input type="text" id="ce-engine" class="yard-numpad-target" data-field="engine" readonly>
+          </div>
+          <div class="form-row">
+            <label>Caboose</label>
+            <input type="text" id="ce-caboose" class="yard-numpad-target" data-field="caboose" readonly>
+          </div>
+          <div class="form-row">
+            <label>Loads</label>
+            <input type="text" id="ce-loads" class="yard-numpad-target" data-field="cars_loaded" readonly>
+          </div>
+          <div class="form-row">
+            <label>Empties</label>
+            <input type="text" id="ce-empties" class="yard-numpad-target" data-field="cars_empty" readonly>
+          </div>
+          <div class="form-row">
+            <label>Track</label>
+            <div id="ce-track-select" class="yard-track-select"></div>
+          </div>
+        </div>
+        <div class="yard-numpad" id="ce-numpad">
+          <div class="yard-numpad-active">Active: <span id="ce-active-field">Engine</span></div>
+          <div class="yard-numpad-grid"></div>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button id="btn-ce-draft" class="btn">Save Draft</button>
+        <button id="btn-ce-submit" class="btn primary">Submit — Notify Dispatcher</button>
+        <span id="ce-err" class="form-err"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Extra Request Modal ─────────────────────────────────────────────────── -->
+<div id="modal-extra-request" class="modal-overlay" hidden>
+  <div class="modal">
+    <div class="modal-header">
+      <span>Request Extra Train</span>
+      <button class="modal-close" data-close="modal-extra-request">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <label>Direction</label>
+        <div class="btn-group" id="er-dir-group">
+          <button class="btn dir-btn" data-dir="N">North</button>
+          <button class="btn dir-btn" data-dir="S">South</button>
+        </div>
+      </div>
+      <div class="form-row">
+        <label>Approx Loads</label>
+        <input type="number" id="er-loads" min="0" value="0">
+      </div>
+      <div class="form-row">
+        <label>Approx Empties</label>
+        <input type="number" id="er-empties" min="0" value="0">
+      </div>
+      <div class="form-actions">
+        <button id="btn-er-submit" class="btn primary">Notify Dispatcher</button>
+        <span id="er-err" class="form-err"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/static/yard.js?v={{ version }}"></script>
+</body>
+</html>

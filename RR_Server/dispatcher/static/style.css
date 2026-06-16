@@ -133,17 +133,26 @@ main { padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; }
 }
 #set-form select { width: 110px; }
 
-/* ── Station table ───────────────────────────────────────────────── */
+/* ── Station table + OS log row ──────────────────────────────────── */
+#station-os-row {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+}
+
 #station-table {
     background: var(--panel);
     border: 1px solid var(--border);
     border-radius: 6px;
     overflow: hidden;
+    flex: 0 0 auto;   /* compact, intrinsic width — does not stretch to fill the row */
 }
 
 .station-header, .station-row {
     display: grid;
-    grid-template-columns: 16px 38px 1fr 28px 1fr 54px 28px 1fr;
+    /* Fixed widths (not 1fr) so the table has a deliberate compact width
+       instead of stretching to fill whatever space is available. */
+    grid-template-columns: 16px 38px 150px 28px 110px 54px 28px 110px;
     align-items: center;
     gap: 0 12px;
     padding: 7px 14px;
@@ -209,18 +218,13 @@ main { padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; }
 .rt-s { color: #56c8d8; }
 
 /* ── OS log panel ────────────────────────────────────────────────── */
-#log-panels {
-    display: grid;
-    grid-template-columns: 1fr 1.6fr;
-    gap: 12px;
-    align-items: start;
-}
-
 #os-panel {
     background: var(--panel);
     border: 1px solid var(--border);
     border-radius: 6px;
     overflow: hidden;
+    flex: 1 1 auto;   /* fills the space freed up by the now-compact station table */
+    min-width: 0;
 }
 
 #to-log-panel {
@@ -272,7 +276,7 @@ main { padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; }
 
 .os-header {
     display: grid;
-    grid-template-columns: 90px 50px 1fr;
+    grid-template-columns: 90px 50px 1fr 50px;
     gap: 0 10px;
     padding: 6px 14px;
     font-size: 0.7rem;
@@ -286,7 +290,7 @@ main { padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; }
 
 .os-row {
     display: grid;
-    grid-template-columns: 90px 50px 1fr;
+    grid-template-columns: 90px 50px 1fr 50px;
     gap: 0 10px;
     padding: 5px 14px;
     font-size: 0.85rem;
@@ -298,6 +302,8 @@ main { padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; }
 .os-col-time  { color: var(--muted); }
 .os-col-sta   { font-weight: 700; color: var(--text); }
 .os-col-train { font-weight: 700; }
+.os-col-ym    { text-align: right; }
+.ym-quick-btn { padding: 2px 7px; font-size: 0.7rem; }
 
 .os-dir-n { color: #7dcc85; }
 .os-dir-s { color: #56c8d8; }
@@ -315,6 +321,54 @@ main { padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; }
     align-items: center;
 }
 
+/* ── Yardmaster communication section ────────────────────────────── */
+#ym-section {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+}
+.yard-section-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 14px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    border-bottom: 1px solid var(--border);
+    background: #1e1e1e;
+}
+.yard-section-header .btn { margin-left: auto; }
+.yard-section-header .btn + .btn { margin-left: 0; }
+
+.ym-alert {
+    background: #3d2a00;
+    border-bottom: 1px solid #6b4a00;
+    color: #e0a830;
+    padding: 8px 14px;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.ym-status-panel { padding: 10px 14px; }
+.ym-tb-row {
+    display: grid;
+    grid-template-columns: 50px auto 1fr auto;
+    gap: 10px;
+    align-items: center;
+    padding: 5px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.85rem;
+}
+.ym-tb-row:last-child { border-bottom: none; }
+.ym-tb-id { font-family: monospace; font-weight: 700; color: var(--accent); }
+.ym-tb-train { font-family: monospace; font-weight: 600; }
+.ym-tb-detail { font-size: 0.75rem; color: var(--muted); font-family: monospace; }
+.ym-tb-state { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; }
+.ym-tb-empty { color: var(--offline); font-style: italic; grid-column: span 3; }
+
 /* ── Signal arm buttons (inside station table) ───────────────────── */
 .arm-btn {
     background: none;
@@ -331,6 +385,22 @@ main { padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; }
 .arm-btn.raised  { color: #e03030; }
 .arm-btn.lowered { color: #4caf50; }
 .arm-btn.none    { color: #555; }
+
+/* WP-XP block section signal — diamond, visually distinct from TO arm triangles */
+.block-arm-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0 3px;
+    border-radius: 3px;
+    font-size: 0.8rem;
+    transition: background 0.1s;
+    line-height: 1;
+    vertical-align: middle;
+}
+.block-arm-btn:hover { background: #333; }
+.block-arm-btn.clear { color: #4caf50; }
+.block-arm-btn.stop  { color: #e03030; }
 
 /* ── Modal overlay ───────────────────────────────────────────────── */
 .modal-overlay {

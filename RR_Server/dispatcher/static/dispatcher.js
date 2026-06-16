@@ -2,6 +2,7 @@
 
 const DAYS = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const DIR_WORD = { N: 'North', S: 'South' };
+const DIR_WARD = { N: 'Northward', S: 'Southward' };   // matches printed timetable convention
 
 const ALL_FORMS = [
     { letter: 'A', desc: 'Fixing Meeting Points for Opposing Trains' },
@@ -30,6 +31,8 @@ const ALL_FORMS = [
 let ws = null;
 let reconnectTimer = null;
 let toSignalStations = new Set();
+let blockSignalStations = new Set();
+let _blockSignalStates = {};  // { sid: 'raised'|'lowered' }
 let stationIds = [];
 let stationNames = {};
 let toTypes = {};       // to_types.json content from server
@@ -39,6 +42,8 @@ let toLogData = [];     // local mirror of issued TOs (newest first)
 let _signalStates = {};  // { sid: { N: 'raised'|'lowered', S: 'raised'|'lowered' } }
 let stationData = {};   // { sid: { types, flagging_required, siding_length_cars } }
 let extraTimes = {};    // { sid: { N: minutes|null, S: minutes|null } }
+let consists = {};      // train/engine number -> consist dict (Yard Status panel)
+let yardTracks = [];    // loaded from yard.json via initial_state
 
 // Clock interpolation state — updated on each clock_update event
 let _clockSnap = null;  // { rrMinutes, speed, running, day, receivedAt }
@@ -63,10 +68,14 @@ function connect() {
             case 'clock_update':     handleClockUpdate(event);     break;
             case 'station_status':   handleStationStatus(event);   break;
             case 'to_signal_update': handleToSignalUpdate(event);  break;
+            case 'block_signal_update': handleBlockSignalUpdate(event); break;
             case 'os_report':        handleOsReport(event);        break;
             case 'to_issued':        handleToIssued(event);        break;
             case 'to_ack':           handleToAck(event);           break;
             case 'to_train_rcvd':   handleToTrainRcvd(event);     break;
+            case 'consist_update':  handleConsistUpdate(event);   break;
+            case 'yard_notification': handleYardNotification(event); break;
+            case 'extra_request':   handleExtraRequest(event);    break;
         }
     };
 
@@ -84,12 +93,16 @@ function handleInitialState(event) {
     stationIds  = event.station_ids  || [];
     stationNames = event.station_names || {};
     toSignalStations = new Set(event.to_signal_stations || []);
+    blockSignalStations = new Set(event.block_signal_stations || []);
+    _blockSignalStates = event.block_signals || {};
     toTypes     = event.to_types     || {};
     activeForms = event.active_forms  || [];
     layoutRules = event.layout_rules  || {};
     toLogData   = event.to_log       || [];
     stationData = event.station_data  || {};
     extraTimes  = event.extra_times   || {};
+    consists    = event.consists      || {};
+    yardTracks  = event.yard_tracks   || [];
 
     buildStationGrid(stationIds, stationNames);
     updateClock(event.clock);
@@ -99,12 +112,15 @@ function handleInitialState(event) {
     for (const [sid, arms] of Object.entries(event.to_signals || {}))
         for (const [dir, sigState] of Object.entries(arms))
             updateToSignal(sid, dir, sigState);
+    for (const [sid, sigState] of Object.entries(event.block_signals || {}))
+        updateBlockSignal(sid, sigState);
     rebuildOsLog(event.os_log || []);
     refreshToLog();
     populateToTypeSelect();
     populateToStationChecks();
     populateFormSelect();
     updateAllSignalArms();
+    renderYmStatusPanel();
 }
 
 function handleClockUpdate(event) {
@@ -118,6 +134,10 @@ function handleStationStatus(event) {
 
 function handleToSignalUpdate(event) {
     updateToSignal(event.station_id, event.direction, event.state);
+}
+
+function handleBlockSignalUpdate(event) {
+    updateBlockSignal(event.station_id, event.state);
 }
 
 function handleToIssued(event) {
@@ -140,6 +160,135 @@ function handleToTrainRcvd(event) {
         entry.train_acks[event.train] = event.rr_time;
     }
     refreshToLog();
+}
+
+// ── Yardmaster section (read-only Yard Status + Notify YM + extra alerts) ────
+
+function handleConsistUpdate(event) {
+    consists[event.consist.train] = event.consist;
+    renderYmStatusPanel();
+}
+
+function handleYardNotification(event) {
+    // No dispatcher-side state currently derived from yard_notification beyond
+    // what consist_update already drives; reserved for future use.
+}
+
+function handleExtraRequest(event) {
+    const banner = document.getElementById('ym-extra-alert');
+    const dirWord = DIR_WARD[event.direction] || event.direction;
+    banner.innerHTML =
+        `&#9889; Yardmaster requests extra: ~${event.approx_loads ?? '?'} loads, ` +
+        `~${event.approx_empties ?? '?'} empties — ${dirWord} ` +
+        `<button class="btn small primary" id="btn-extra-authorize">AUTHORIZE</button> ` +
+        `<button class="btn small" id="btn-extra-dismiss">DISMISS</button>`;
+    banner.classList.remove('hidden');
+
+    document.getElementById('btn-extra-authorize').onclick = () => {
+        banner.classList.add('hidden');
+        openToFormModal();
+        const typeSel = document.getElementById('to-type-select');
+        typeSel.value = 'running_extra';
+        buildToFields('running_extra');
+        updateToPreview();
+        const dirEl = document.getElementById('to-f-direction');
+        if (dirEl) dirEl.value = event.direction;
+    };
+    document.getElementById('btn-extra-dismiss').onclick = () => banner.classList.add('hidden');
+}
+
+function ymTrackBoardRowHtml(t) {
+    const occupant = Object.values(consists).find(c => c.track_id === t.id && c.state !== 'cleared');
+    let body;
+    if (occupant) {
+        // Train ID convention: "23N" scheduled, "X34S" extras (engine number).
+        const trainId = `${occupant.extra ? 'X' : ''}${occupant.train}${occupant.direction || ''}`;
+        const detailParts = [];
+        if (occupant.engine) detailParts.push(`Eng ${occupant.engine}`);
+        if (occupant.caboose) detailParts.push(`Cab ${occupant.caboose}`);
+        const detail = detailParts.join(' &middot; ');
+        body = `<span class="ym-tb-train">${trainId}</span>` +
+               `<span class="ym-tb-detail">${detail}</span>` +
+               `<span class="ym-tb-state">${occupant.state}</span>`;
+    } else {
+        body = '<span class="ym-tb-empty">—— empty</span>';
+    }
+    return `<div class="ym-tb-row"><span class="ym-tb-id">${t.id}</span>${body}</div>`;
+}
+
+// RUN (runaround), CAB (caboose storage), and YL (yard lead) are switching/
+// infrastructure tracks, not places a consist parks — excluded from the board.
+const YM_TRACK_BOARD_EXCLUDE_FN = ['runaround', 'caboose', 'yard_lead'];
+
+function renderYmStatusPanel() {
+    const el = document.getElementById('ym-track-board');
+    if (!el) return;
+    const tracks = yardTracks.filter(t => !YM_TRACK_BOARD_EXCLUDE_FN.includes(t.function));
+    el.innerHTML = tracks.length
+        ? tracks.map(ymTrackBoardRowHtml).join('')
+        : '<em class="muted">No yard track data.</em>';
+}
+
+// ── Notify YM modal ───────────────────────────────────────────────────────────
+
+function updateNotifyYmFieldVisibility() {
+    const type = document.getElementById('ym-notif-type').value;
+    document.getElementById('ym-notif-direction-row').style.display =
+        type === 'arrival' ? '' : 'none';
+    const timeRow = document.getElementById('ym-notif-time-row');
+    const timeLabel = document.getElementById('ym-notif-time-label');
+    if (type === 'arrival') {
+        timeLabel.textContent = 'Expected RR Time';
+        timeRow.style.display = '';
+    } else if (type === 'departure_change') {
+        timeLabel.textContent = 'New Departure Time';
+        timeRow.style.display = '';
+    } else {
+        timeRow.style.display = 'none';
+    }
+}
+
+function openNotifyYmModal(prefill = {}) {
+    document.getElementById('ym-notif-type').value = prefill.type || 'arrival';
+    document.getElementById('ym-notif-train').value = prefill.train || '';
+    document.getElementById('ym-notif-direction').value = prefill.direction || 'S';
+    document.getElementById('ym-notif-time').value = '';
+    document.getElementById('ym-notif-err').textContent = '';
+    updateNotifyYmFieldVisibility();
+    document.getElementById('modal-notify-ym').hidden = false;
+}
+
+function closeNotifyYmModal() {
+    document.getElementById('modal-notify-ym').hidden = true;
+}
+
+async function submitNotifyYm() {
+    const type = document.getElementById('ym-notif-type').value;
+    const train = document.getElementById('ym-notif-train').value.trim();
+    const errEl = document.getElementById('ym-notif-err');
+    errEl.textContent = '';
+    if (!train) { errEl.textContent = 'Train/engine number required'; return; }
+
+    const body = { type, train };
+    if (type === 'arrival') {
+        body.direction = document.getElementById('ym-notif-direction').value;
+        body.expected_rr_time = document.getElementById('ym-notif-time').value.trim();
+    } else if (type === 'departure_change') {
+        body.new_departure_rr_time = document.getElementById('ym-notif-time').value.trim();
+    }
+
+    try {
+        const r = await fetch('/api/yard/notification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        const respBody = await r.json();
+        if (!r.ok) { errEl.textContent = respBody.error || 'Error'; return; }
+        closeNotifyYmModal();
+    } catch {
+        errEl.textContent = 'Request failed';
+    }
 }
 
 // ── Clock display ────────────────────────────────────────────────────────────
@@ -223,13 +372,16 @@ function buildStationGrid(ids, names) {
             ? `<span class="col-runtime">${nTime}${sTime}</span>`
             : `<span class="col-runtime col-runtime-none">—</span>`;
 
+        const blockArm = blockSignalStations.has(sid)
+            ? ` <span id="block-${sid}">${blockArmHtml(sid, _blockSignalStates[sid] || 'raised')}</span>` : '';
+
         const row = document.createElement('div');
         row.className = 'station-row';
         row.id = `row-${sid}`;
         row.innerHTML = `
             <span class="status-dot" id="dot-${sid}"></span>
             <span class="col-id">${sid}</span>
-            <span class="col-name">${names[sid] || sid}${flagMark}${metaLine}</span>
+            <span class="col-name">${names[sid] || sid}${blockArm}${flagMark}${metaLine}</span>
             <span class="col-to" id="to-${sid}-N">${hasTo ? armHtml(sid, 'N', 'raised') : ''}</span>
             <span class="col-train" id="nt-${sid}-N"></span>
             ${rtHtml}
@@ -239,6 +391,14 @@ function buildStationGrid(ids, names) {
     }
     // Bind arm button clicks (event delegation on the table)
     table.addEventListener('click', e => {
+        const blockBtn = e.target.closest('.block-arm-btn');
+        if (blockBtn) {
+            const sid = blockBtn.dataset.sid;
+            const next = blockBtn.dataset.state === 'raised' ? 'lowered' : 'raised';
+            blockSignalCmd(sid, next);
+            return;
+        }
+
         const btn = e.target.closest('.arm-btn');
         if (!btn || btn.disabled) return;
         const sid  = btn.dataset.sid;
@@ -287,12 +447,35 @@ function armHtml(sid, dir, state) {
         `${blocked ? 'disabled ' : ''}title="${title}">${sym}</button>`;
 }
 
+// WP-XP block section signal — one per station (not N/S pair), diamond symbol
+// to read as visually distinct from the triangular TO-order arms. Raised =
+// block clear; lowered = block occupied/stop. No ACK-gating — block status is
+// the dispatcher's own judgment call, not tied to outstanding train orders.
+const BLOCK_SIGNAL_LABEL = { WP: 'exit WP → XP', XP: 'exit XP → WP' };
+
+function blockArmHtml(sid, state) {
+    const isStopped = state === 'lowered';
+    const cls = isStopped ? 'stop' : 'clear';
+    const sym = isStopped ? '◆' : '◇';  // filled / open diamond
+    const title = `Block signal — ${BLOCK_SIGNAL_LABEL[sid] || sid} ` +
+        (isStopped ? '(STOP — click to clear)' : '(CLEAR — click to stop)');
+    return `<button class="block-arm-btn ${cls}" data-sid="${sid}" ` +
+        `data-state="${state || 'raised'}" title="${title}">${sym}</button>`;
+}
+
 function updateToSignal(sid, dir, state) {
     if (!_signalStates[sid]) _signalStates[sid] = {};
     _signalStates[sid][dir] = state;
     const el = document.getElementById(`to-${sid}-${dir}`);
     if (!el) return;
     el.innerHTML = armHtml(sid, dir, state);
+}
+
+function updateBlockSignal(sid, state) {
+    _blockSignalStates[sid] = state;
+    const el = document.getElementById(`block-${sid}`);
+    if (!el) return;
+    el.innerHTML = blockArmHtml(sid, state);
 }
 
 function isSignalReadyToRaise(sid) {
@@ -374,6 +557,18 @@ async function signalArmCmd(sid, dir, state) {
     }
 }
 
+async function blockSignalCmd(sid, state) {
+    try {
+        await fetch('/api/signal/block', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ station_id: sid, state }),
+        });
+    } catch {
+        setStatus('Block signal command failed', true);
+    }
+}
+
 // ── OS log ───────────────────────────────────────────────────────────────────
 
 function fmtRrTime(t) {
@@ -388,10 +583,15 @@ function fmtRrTime(t) {
 function osEntryHtml(entry) {
     const prefix   = entry.work_extra ? 'WX' : entry.extra ? 'X' : '';
     const dirClass = entry.direction === 'N' ? 'os-dir-n' : 'os-dir-s';
+    // Southbound trains terminate at WP yard — offer a one-tap arrival notice to the YM.
+    const ymBtn = entry.direction === 'S'
+        ? `<button class="btn small ym-quick-btn" data-train="${entry.train}" title="Notify YM of arrival">&rarr; YM</button>`
+        : '';
     return `<div class="os-row">` +
         `<span class="os-col-time">${fmtRrTime(entry.rr_time)}</span>` +
         `<span class="os-col-sta">${entry.station_id}</span>` +
         `<span class="os-col-train ${dirClass}">${prefix}${entry.train}${entry.direction}</span>` +
+        `<span class="os-col-ym">${ymBtn}</span>` +
         `</div>`;
 }
 
@@ -454,6 +654,23 @@ function initControls() {
     // Close modal on overlay click
     document.getElementById('modal-to-form').addEventListener('click', e => {
         if (e.target === e.currentTarget) closeToFormModal();
+    });
+
+    // Yardmaster section
+    document.getElementById('btn-notify-ym').onclick = () => openNotifyYmModal();
+    document.getElementById('btn-notify-ym-close').onclick = () => closeNotifyYmModal();
+    document.getElementById('ym-notif-type').onchange = updateNotifyYmFieldVisibility;
+    document.getElementById('btn-ym-notif-submit').onclick = () => submitNotifyYm();
+    document.getElementById('modal-notify-ym').addEventListener('click', e => {
+        if (e.target === e.currentTarget) closeNotifyYmModal();
+    });
+    document.getElementById('btn-ym-toggle').onclick = () => {
+        document.getElementById('ym-status-panel').classList.toggle('hidden');
+    };
+    document.getElementById('os-log').addEventListener('click', e => {
+        const btn = e.target.closest('.ym-quick-btn');
+        if (!btn) return;
+        openNotifyYmModal({ type: 'arrival', train: btn.dataset.train, direction: 'S' });
     });
 }
 

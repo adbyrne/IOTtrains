@@ -65,17 +65,30 @@
         </div>
     </div>
 
-    <!-- Station table (populated by JS on initial_state) -->
-    <div id="station-table">
-        <div class="station-header">
-            <span></span>
-            <span>ID</span>
-            <span>Station</span>
-            <span></span>
-            <span>&#x2192; North</span>
-            <span class="col-runtime-hdr">Extras</span>
-            <span></span>
-            <span>&#x2190; South</span>
+    <!-- Station table + OS log side by side — station table is compact width,
+         OS log fills the remaining space rather than stretching full-width -->
+    <div id="station-os-row">
+        <div id="station-table">
+            <div class="station-header">
+                <span></span>
+                <span>ID</span>
+                <span>Station</span>
+                <span></span>
+                <span>&#x2192; North</span>
+                <span class="col-runtime-hdr">Extras</span>
+                <span></span>
+                <span>&#x2190; South</span>
+            </div>
+        </div>
+
+        <div id="os-panel">
+            <div class="os-header">
+                <span class="os-header-cell os-col-time">RR Time</span>
+                <span class="os-header-cell os-col-sta">Station</span>
+                <span class="os-header-cell os-col-train">Train</span>
+                <span class="os-header-cell"></span>
+            </div>
+            <div id="os-log"></div>
         </div>
     </div>
 
@@ -85,21 +98,22 @@
         <a href="/manage" class="manage-link">Manage</a>
     </div>
 
-    <!-- OS log + TO log side by side -->
-    <div id="log-panels">
-        <div id="os-panel">
-            <div class="os-header">
-                <span class="os-header-cell os-col-time">RR Time</span>
-                <span class="os-header-cell os-col-sta">Station</span>
-                <span class="os-header-cell os-col-train">Train</span>
-            </div>
-            <div id="os-log"></div>
+    <!-- Yardmaster communication section -->
+    <div id="ym-section">
+        <div class="yard-section-header">
+            <span>Yardmaster</span>
+            <button id="btn-notify-ym" class="btn">Notify YM</button>
+            <button id="btn-ym-toggle" class="btn small">Yard Status &#x25be;</button>
         </div>
+        <div id="ym-extra-alert" class="ym-alert hidden"></div>
+        <div id="ym-status-panel" class="ym-status-panel hidden">
+            <div id="ym-track-board"></div>
+        </div>
+    </div>
 
-        <div id="to-log-panel">
-            <div class="to-log-panel-header">Train Orders</div>
-            <div id="to-log-list"><em class="muted">No orders issued.</em></div>
-        </div>
+    <div id="to-log-panel">
+        <div class="to-log-panel-header">Train Orders</div>
+        <div id="to-log-list"><em class="muted">No orders issued.</em></div>
     </div>
 
     <div id="status-bar">Connecting…</div>
@@ -138,6 +152,45 @@
     </div>
 </div>
 
+
+<!-- ── Notify Yardmaster dialog ──────────────────────────────────────────── -->
+<div id="modal-notify-ym" class="modal-overlay" hidden>
+    <div class="modal">
+        <div class="modal-header">
+            <span>Notify Yardmaster</span>
+            <button class="modal-close" id="btn-notify-ym-close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-row">
+                <label for="ym-notif-type">Notification Type</label>
+                <select id="ym-notif-type">
+                    <option value="arrival">Arrival</option>
+                    <option value="departure_change">Departure Change</option>
+                    <option value="annulment">Annulment</option>
+                </select>
+            </div>
+            <div class="form-row">
+                <label for="ym-notif-train">Train / Engine #</label>
+                <input type="text" id="ym-notif-train">
+            </div>
+            <div class="form-row" id="ym-notif-direction-row">
+                <label for="ym-notif-direction">Direction</label>
+                <select id="ym-notif-direction">
+                    <option value="S">South</option>
+                    <option value="N">North</option>
+                </select>
+            </div>
+            <div class="form-row" id="ym-notif-time-row">
+                <label for="ym-notif-time" id="ym-notif-time-label">Expected RR Time</label>
+                <input type="text" id="ym-notif-time" placeholder="HH:MM">
+            </div>
+            <div class="form-actions">
+                <button id="btn-ym-notif-submit" class="btn primary">Send</button>
+                <span id="ym-notif-err" class="form-err"></span>
+            </div>
+        </div>
+    </div>
+</div>
 
 <script src="/static/dispatcher.js?v={{ version }}"></script>
 </body>

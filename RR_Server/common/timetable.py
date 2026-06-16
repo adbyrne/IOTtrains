@@ -186,6 +186,32 @@ def station_display_data(subdivision_id: str, station_ids: list[str]) -> dict:
     return result
 
 
+def coe_schedule(day: int) -> list[dict]:
+    """
+    Return C&O (COE subdivision) trains running on `day`, with their WP interchange
+    (WP_COE) arrive/depart times, sorted by WP time. Used for the Yardmaster
+    terminal C&O footer.
+
+    Returns: [{"number": str, "direction": "E"|"W", "wp_arrive": str|None, "wp_depart": str|None}, ...]
+    Trains without a WP_COE stop are skipped.
+    """
+    result = []
+    for train in active_trains("COE", day):
+        wp_stop = next((s for s in train.get("schedule", []) if s["location"] == "WP_COE"), None)
+        if wp_stop is None:
+            continue
+        result.append(
+            {
+                "number": train["number"],
+                "direction": train["direction"],
+                "wp_arrive": wp_stop.get("arrive"),
+                "wp_depart": wp_stop.get("depart"),
+            }
+        )
+    result.sort(key=lambda t: _time_minutes(t["wp_depart"] or t["wp_arrive"]))
+    return result
+
+
 def next_train(
     subdivision_id: str,
     location_id: str,

@@ -8,6 +8,11 @@ STATION_IDS = ["WP", "XP", "BB", "JC", "MC", "SK", "HC"]
 # Stations with physical TO signal arms
 TO_SIGNAL_STATIONS = {"XP", "BB", "JC", "MC", "SK"}
 
+# WP-XP block section boundary signals — distinct from TO signals (order
+# delivery) and station-specific (one per station, not N/S pairs): WP's
+# signal gates northbound entry into the block; XP's gates southbound entry.
+BLOCK_SIGNAL_STATIONS = {"WP", "XP"}
+
 STATION_NAMES = {
     "WP": "Williamsport",
     "XP": "Xina Pass",
@@ -20,6 +25,7 @@ STATION_NAMES = {
 
 OS_LOG_MAX = 50
 TO_LOG_MAX = 100
+YARD_NOTIF_MAX = 20
 
 
 @dataclass
@@ -27,15 +33,24 @@ class AppState:
     clock: dict = field(default_factory=dict)
     stations: dict = field(default_factory=dict)    # station_id -> status dict
     to_signals: dict = field(default_factory=dict)  # station_id -> {"N": state, "S": state}
+    block_signals: dict = field(default_factory=dict)  # station_id -> "raised"|"lowered" (WP, XP only)
     os_log: list = field(default_factory=list)      # newest first, capped at OS_LOG_MAX
     to_log: list = field(default_factory=list)      # newest first, capped at TO_LOG_MAX
     to_seq: int = 0
     current_day: int = 0                            # tracks RR day for Rule 203 reset
+    consists: dict = field(default_factory=dict)         # train/engine number -> consist dict
+    yard_notifications: list = field(default_factory=list)  # newest first, capped at YARD_NOTIF_MAX
+    yard_tracks: list = field(default_factory=list)         # loaded from yard.json at startup
+    extra_seq: int = 0                                      # placeholder "XTRA{n}" id counter
     _clients: set = field(default_factory=set)
 
     def next_seq(self) -> int:
         self.to_seq += 1
         return self.to_seq
+
+    def next_extra_seq(self) -> int:
+        self.extra_seq += 1
+        return self.extra_seq
 
     def reset_seq(self) -> None:
         """Reset TO sequence to 0 so the next order is No. 1 (Rule 203)."""
@@ -73,6 +88,23 @@ class AppState:
                     entry["train_acks"][train] = rr_time
                 return entry
         return None
+
+    def record_consist(self, train: str, payload: dict) -> dict:
+        """Upsert a consist record, deriving cars_total when loads/empties are both present."""
+        entry = dict(payload)
+        entry["train"] = train
+        if entry.get("cars_loaded") is not None and entry.get("cars_empty") is not None:
+            entry["cars_total"] = entry["cars_loaded"] + entry["cars_empty"]
+        entry["rr_time"] = f"{self.clock.get('hour', 0):02d}:{self.clock.get('minute', 0):02d}"
+        entry["day"] = self.clock.get("day")
+        self.consists[train] = entry
+        return entry
+
+    def record_notification(self, entry: dict) -> None:
+        """Prepend a yard notification, newest first, capped at YARD_NOTIF_MAX."""
+        self.yard_notifications.insert(0, entry)
+        if len(self.yard_notifications) > YARD_NOTIF_MAX:
+            self.yard_notifications = self.yard_notifications[:YARD_NOTIF_MAX]
 
     async def connect(self, ws: WebSocket) -> None:
         await ws.accept()

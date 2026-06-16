@@ -119,30 +119,33 @@
 
 ## Phase 2 — Operations
 
-### Session 2.0 — WP Yardmaster Terminal _(design complete 2026-06-05)_
+### Session 2.0 — WP Yardmaster Terminal _(2.0a + 2.0b software complete 2026-06-16; RPi3 physical setup pending)_
 
-**Full design:** `docs/YARDMASTER_DESIGN.md`
+**Full design:** `docs/YARDMASTER_DESIGN.md` v1.2
 
 **Hardware:** RPi3 (RPi3-1 or RPi3-3) + ELECROW 7" IPS 1024×600 HDMI touchscreen (pk=106). Chromium kiosk mode → `http://192.168.10.1:5000/yard`. Touch-only, no keyboard.
 
-**Pre-session prerequisites (content tasks — do before implementation):**
-- [ ] WP yard track IDs extracted from XTrkCAD layout file → populate `yard.json`
-- [ ] C&O timetable data populated in `timetable.json` COE subdivision (from `NYELayoutDocs/alt/timetable.ods` Sheet2)
+**Pre-session prerequisites — all resolved:**
+- [x] WP yard track IDs extracted from XTrkCAD layout file → populated in `yard.json`
+- [x] C&O timetable data populated in `timetable.json` COE subdivision (10 trains)
+- [x] Dispatcher yard status view scope decided — included in Session 2.0b (§8.3)
 
-**Scope — Session 2.0a (backend):**
+**Scope — Session 2.0a (backend) ✅ COMPLETE:**
 - `RR_Server/data/yard.json` — track definitions with XTrkCAD IDs and function designations
 - `AppState` additions: `consists` dict, `yard_notifications` list, `yard_tracks` list
 - MQTT: subscribe `trains/yard/consist/+` (retained); publish `trains/yard/notification`, `trains/yard/consist/{train}`
 - New API: `GET /yard`, `POST /api/yard/consist`, `POST /api/yard/notification`, `POST /api/yard/extra_request`
 - WebSocket events: `consist_update`, `yard_notification`, `extra_request`; `initial_state` extended with yard data + C&O trains
-- `tests/test_yard.py` — 13 tests covering all endpoints and WS events
+- `tests/test_yard.py` — 23 tests covering all endpoints and WS events; 142 tests total in the project, all passing
+- `common/timetable.py`: new `coe_schedule(day)` function (C&O WP-interchange times for the footer)
 
-**Scope — Session 2.0b (UI + RPi3):**
-- `yard.html` + `yard.js` — 1024×600 touchscreen page: departing trains panel, track board, arriving trains panel, C&O footer
-- Consist build modals: scheduled (single-stage) + extra (two-stage: car block → engine/caboose)
+**Scope — Session 2.0b (UI) ✅ COMPLETE / (RPi3) pending:**
+- `yard.html` + `yard.js` + `yard.css` — 1024×600 touchscreen page: departing trains panel, track board, arriving trains panel, C&O footer
+- Consist build modals: scheduled (single-stage) + extra (two-stage: car block → engine/caboose), shared on-screen numpad
 - Extra request modal (YM-initiated extra request to dispatcher)
-- Dispatcher page: "Notify YM" button + modal; extra request alert banner; optional yard status read-only view
-- RPi3 provisioning: OS flash, Chromium kiosk autostart, NYE_Layout WiFi, DHCP reservation on RPi5
+- Dispatcher page: "Notify YM" button + modal; `[→ YM]` quick-action on southbound OS log entries; extra request alert banner; read-only "Yard Status" panel — all grouped under a "Yardmaster" section heading
+- Deployed to rpi5-2 and verified end-to-end (HTTP + WebSocket) against the live server — full consist lifecycle (scheduled + two-stage extra), notifications, extra request, validation error paths all confirmed working
+- RPi3 provisioning: OS flash, Chromium kiosk autostart, NYE_Layout WiFi, DHCP reservation on RPi5 — **not yet started**, needs physical RPi3 + ELECROW display
 
 **Consist lifecycle (new `car_block_ready` state for extras):**
 - Scheduled: `assembling` → `ready` → `cleared`
@@ -389,3 +392,6 @@ A small 58mm thermal receipt printer at each station to produce a physical print
 | 2.3 | 2026-05-23 | Session 2.5 complete. Station_OS v2.3.0: PCA9685 signal arm control via CN1 I2C (IO27/IO22). CYD I2C design question resolved (GPIO21=backlight). Dispatcher v2.3: TO issuance single-step (signal step removed). TO_Signal ESP32 enclosure cancelled — not needed. |
 | 2.4 | 2026-06-05 | Session 2.0 design complete. Full yardmaster terminal design in docs/YARDMASTER_DESIGN.md. Consists: two-stage extra train workflow, car_block_ready state. C&O as YM-only domain. MQTT_SPEC.md v0.8. Session 2.0 expanded to 2.0a (backend) + 2.0b (UI + RPi3). 15 open questions and considerations documented. |
 | 2.5 | 2026-06-06 | Future enhancements added: e-paper station timetable displays (7.5" B/W, ~$75/unit) and thermal Train Order printers (58mm TTL, ~$46/unit). Hardware research in docs/HARDWARE_RESEARCH_EPAPER_THERMAL.md. Hardware to Order table updated. |
+| 2.6 | 2026-06-16 | Session 2.0 design fully closed out: all 3 pre-session prerequisites resolved (WP yard track IDs, COE data, dispatcher yard status view scope — included in 2.0b per YARDMASTER_DESIGN.md §8.3 v1.1). No remaining open design questions anywhere in the system docs (SYSTEM_ARCHITECTURE.md §13 already empty). Cleared to implement Session 2.0 and to draft DO Article 1. |
+| 2.7 | 2026-06-16 | Session 2.0a + 2.0b implemented (software): yard.json-backed backend (consists/yard_tracks/yard_notifications state, 3 new API endpoints, 3 new WS event types), full yard.html/yard.js/yard.css terminal UI, dispatcher-page Yardmaster section (Notify YM, extra alert, Yard Status). 23 new tests, 142 total passing. Deployed to rpi5-2 (DISPATCHER_VERSION 2.4) and verified end-to-end. RPi3 physical kiosk provisioning (§9) deferred to a follow-up session pending hardware in hand. |
+| 2.8 | 2026-06-16 | Extra train workflow simplified (per owner direction): single-stage build (engine/caboose/loads/empties/track together, incremental Save Draft) replaces the original two-stage car-block-then-engine design; `XTRA{n}` placeholder consist created at Extra Request time; issuing the running_extra TO auto-sets the consist's departure time from the TO's own field. Arrivals stay dispatcher-driven (manual "Notify YM" + `[→ YM]` quick-action) by default, with a new owner-configurable `auto_notify_ym_arrival` setting (default off) to auto-fire on southbound XP OS reports instead. WP-XP block signals implemented (§13 item 9 resolved) — `POST /api/signal/block`, `trains/signal/{WP,XP}/block/{cmd,state}` (MQTT_SPEC.md v0.9), diamond toggle next to WP/XP station names. Dispatcher page layout: station table compacted to fixed-width columns and placed beside the OS log (was full-width, stacked). DISPATCHER_VERSION 2.5. 155 tests passing. |

@@ -1,8 +1,8 @@
 # NY&E WP Yardmaster Terminal — Design Document
 
-**Version:** 1.0  
-**Date:** 2026-06-05  
-**Status:** Planning complete — ready for implementation
+**Version:** 1.2  
+**Date:** 2026-06-16  
+**Status:** Session 2.0a + 2.0b implemented and deployed (software). RPi3 physical kiosk provisioning (§9) pending.
 
 ---
 
@@ -541,11 +541,9 @@ When the YM sends an extra request (Path B), the dispatcher UI shows a banner:
 
 `[AUTHORIZE]` opens the Issue Train Order modal pre-filled as a running_extra TO.
 
-### 8.3 Consist Status Visibility
+### 8.3 Consist Status Visibility — DECIDED 2026-06-16: include in Session 2.0b
 
-The dispatcher can optionally see consist status — useful for knowing when a train is ready to receive a clearance. This is a read-only view; the dispatcher has no consist edit capability. Implementation: a collapsible "Yard Status" section in the dispatcher page showing the track board and consist states.
-
-Whether to include this in session 2.0 or defer is a scope decision for the implementation session.
+The dispatcher can see consist status — useful for knowing when a train is ready to receive a clearance. This is a read-only view; the dispatcher has no consist edit capability. Implementation: a collapsible "Yard Status" section in the dispatcher page showing the track board and consist states, fed by the same `consist_update` / `initial_state` WebSocket data already specified in §7.4 — no new backend endpoints required, only a dispatcher-side rendering addition in Session 2.0b.
 
 ---
 
@@ -653,28 +651,28 @@ New file: `tests/test_yard.py`
 
 Split into two sub-sessions to allow server-side work to proceed before the RPi3 is physically set up.
 
-### Session 2.0a — Backend + Data
+### Session 2.0a — Backend + Data ✅ COMPLETE (2026-06-16)
 
-1. Create `yard.json` with XTrkCAD track IDs (content prerequisite)
-2. Populate COE timetable data in `timetable.json` (content prerequisite)
-3. `AppState` additions (`consists`, `yard_notifications`, `yard_tracks`)
-4. MQTT subscription for `trains/yard/consist/+`
-5. New API endpoints: `/yard`, `/api/yard/consist`, `/api/yard/notification`, `/api/yard/extra_request`
-6. WebSocket event additions (`consist_update`, `yard_notification`, `extra_request`)
-7. `initial_state` extended with yard data and C&O trains
-8. `tests/test_yard.py` — all tests passing
-9. Access `/yard` from desktop browser at `http://192.168.86.36:5000/yard` to verify backend
+1. Create `yard.json` with XTrkCAD track IDs (content prerequisite) ✅
+2. Populate COE timetable data in `timetable.json` (content prerequisite) ✅
+3. `AppState` additions (`consists`, `yard_notifications`, `yard_tracks`) ✅
+4. MQTT subscription for `trains/yard/consist/+` ✅
+5. New API endpoints: `/yard`, `/api/yard/consist`, `/api/yard/notification`, `/api/yard/extra_request` ✅
+6. WebSocket event additions (`consist_update`, `yard_notification`, `extra_request`) ✅
+7. `initial_state` extended with yard data and C&O trains (`consists`, `yard_tracks`, `yard_notifications`, `coe_trains`, `yard_departures`) ✅
+8. `tests/test_yard.py` — 23 tests, all passing (142 total across the project) ✅
+9. Verified end-to-end against the live rpi5-2 deployment (HTTP + WebSocket) ✅
 
-### Session 2.0b — UI + RPi3
+### Session 2.0b — UI + RPi3 _(software complete; RPi3 physical setup pending)_
 
-1. `yard.html` + `yard.js` — full yardmaster page (3 panels + footer)
-2. Consist build modals — scheduled and extra (both stages)
-3. Extra request modal
-4. Dispatcher page: "Notify YM" button + modal + extra request alert
-5. (Optional, scope decision) Dispatcher yard status read-only view
-6. RPi3 physical setup: OS flash, package install, kiosk autostart
-7. Add NYE_Layout WiFi, DHCP reservation on RPi5
-8. End-to-end test: RPi3 kiosk → `/yard` → consist build → MQTT → dispatcher sees update
+1. `yard.html` + `yard.js` — full yardmaster page (3 panels + footer) ✅
+2. Consist build modals — scheduled and extra (both stages) ✅
+3. Extra request modal ✅
+4. Dispatcher page: "Notify YM" button + modal + extra request alert, grouped under a "Yardmaster" section heading; plus a `[→ YM]` quick-action on southbound OS log entries ✅
+5. Dispatcher yard status read-only view — included per §8.3 decision ✅
+6. RPi3 physical setup: OS flash, package install, kiosk autostart — **pending**, needs physical RPi3 + ELECROW display in hand
+7. Add NYE_Layout WiFi, DHCP reservation on RPi5 — **pending**
+8. End-to-end test: RPi3 kiosk → `/yard` → consist build → MQTT → dispatcher sees update — **pending** (software path verified via desktop browser/HTTP instead)
 
 ---
 
@@ -684,11 +682,11 @@ These items were identified during planning and require further thought before o
 
 ### Pre-session 2.0 (must decide or confirm)
 
-1. **WP yard track IDs from XTrkCAD** — Extract actual track IDs from `~/XTrkCAD/nyelayout/layout.xtc` before populating `yard.json`. Track count and function assignments come from the physical layout. How many tracks does the WP yard have?
+1. **WP yard track IDs from XTrkCAD** — ✅ RESOLVED (2026-06-14 export). `data/yard.json` populated with real track IDs, lengths, and capacities from the XTrkCAD export (RUN, CAB, T2–T8, YL).
 
-2. **C&O timetable data** — Populate COE subdivision from `NYELayoutDocs/alt/timetable.ods` Sheet2. Required for C&O footer to show real data. Can be done as a standalone content task.
+2. **C&O timetable data** — ✅ RESOLVED. COE subdivision in `timetable.json` fully populated (10 trains).
 
-3. **Dispatcher yard status view** — Include in session 2.0b (read-only consist/track board visible to dispatcher), or defer to a later session? Useful for dispatcher to know when a train is ready for clearance.
+3. **Dispatcher yard status view** — ✅ RESOLVED 2026-06-16: include in Session 2.0b. See §8.3.
 
 ### Design requiring further thought
 
@@ -702,7 +700,7 @@ These items were identified during planning and require further thought before o
 
 8. **C&O consist information** — When a C&O train arrives at the interchange, does the YM record the interchange (loads/empties received from C&O, loads/empties delivered to C&O)? Or is all C&O interchange handled on paper? This would only matter for the post-session report.
 
-9. **Multiple trains on WP–XP section** — The Dispatcher controls entry from both ends (XP TO signal arms + WP yard limit). A yard limit entry signal at the WP end of this section is future hardware (servo arm). Design should accommodate this when yard switches are converted.
+9. **Multiple trains on WP–XP section** — ✅ RESOLVED 2026-06-16. Dispatcher-side software control added: a block signal at WP (gates northbound entry into the section) and one at XP (gates southbound entry), independent of XP's existing TO signal arms. Simple raised/lowered toggle, no ACK-gating — `POST /api/signal/block`, `trains/signal/{WP,XP}/block/{cmd,state}` MQTT topics, rendered as a diamond button next to the station name in the dispatcher table. Physical servo hardware at WP is still future work; the software control is ready for it.
 
 10. **YM-initiated extra authorization flow** — When YM requests an extra (Path B), the dispatcher must authorize via a running-extra TO before the YM can begin Stage 1. The current design has the `extra_request` WS event alerting the dispatcher, but the specific dispatcher UI interaction for authorization isn't fully designed. The dispatcher's Issue Train Order flow handles it, but the connection between the alert and the form needs refinement.
 

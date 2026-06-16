@@ -1,4 +1,6 @@
 {
   "superior_direction": "S",
+  "signal_reset_mode": "hard",
+  "auto_notify_ym_arrival": false,
   "notes": "Southward trains are superior by direction — NY&E Northern Lights Subdivision"
 }

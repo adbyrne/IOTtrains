@@ -45,6 +45,20 @@
                 </div>
                 <span class="hint">Hard block is the safer default. Soft warning allows override when ACKs cannot be received (e.g. radio failure).</span>
             </div>
+            <div class="form-row">
+                <label>Yardmaster Arrival Notice</label>
+                <div class="radio-group" id="auto-notify-ym-group">
+                    <label class="radio-item">
+                        <input type="radio" name="auto-notify-ym" value="false">
+                        <strong>Manual</strong> — dispatcher sends "Notify YM" (Arrival) when a southbound train OSes at XP
+                    </label>
+                    <label class="radio-item">
+                        <input type="radio" name="auto-notify-ym" value="true">
+                        <strong>Automatic</strong> — system notifies the Yardmaster as soon as a southbound train OSes at XP
+                    </label>
+                </div>
+                <span class="hint">Manual is the default — gives the dispatcher control over what the YM sees and when. Automatic saves a click but removes that judgment call.</span>
+            </div>
             <div class="form-actions">
                 <button id="btn-save-rules" class="btn primary">Save</button>
                 <span id="rules-status"></span>
@@ -210,6 +224,8 @@ async function loadRules() {
     const resetMode = rules.signal_reset_mode || 'hard';
     const resetEl = document.querySelector(`input[name="sig-reset"][value="${resetMode}"]`);
     if (resetEl) resetEl.checked = true;
+    const autoNotify = rules.auto_notify_ym_arrival ? 'true' : 'false';
+    document.querySelector(`input[name="auto-notify-ym"][value="${autoNotify}"]`).checked = true;
 }
 
 document.getElementById('btn-save-rules').onclick = async () => {
@@ -217,11 +233,15 @@ document.getElementById('btn-save-rules').onclick = async () => {
     const statusEl = document.getElementById('rules-status');
     if (!sel) { statusEl.textContent = 'Select a direction'; statusEl.className = 'form-err'; return; }
     const resetMode = document.querySelector('input[name="sig-reset"]:checked')?.value || 'hard';
+    const autoNotify = document.querySelector('input[name="auto-notify-ym"]:checked')?.value === 'true';
     try {
         const r = await fetch('/api/layout_rules', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ superior_direction: sel.value, signal_reset_mode: resetMode }),
+            body: JSON.stringify({
+                superior_direction: sel.value, signal_reset_mode: resetMode,
+                auto_notify_ym_arrival: autoNotify,
+            }),
         });
         const body = await r.json();
         if (!r.ok) { statusEl.textContent = body.error || 'Error'; statusEl.className = 'form-err'; return; }

@@ -1,7 +1,7 @@
 # NY&E Layout Control System — MQTT Topic Specification
 
-**Version:** 0.8
-**Date:** 2026-06-05
+**Version:** 0.9
+**Date:** 2026-06-16
 **Broker:** Mosquitto on RPi5 at `192.168.10.1:1883`
 
 ---
@@ -259,6 +259,38 @@ _(Retained so each arm recovers its commanded state on controller reconnect.)_
 - `trains/signal/BB/to/S/cmd` — raise/lower BB southbound arm
 - `trains/signal/BB/to/N/state` — BB northbound arm current state
 - `trains/signal/BB/to/S/state` — BB southbound arm current state
+
+---
+
+### 2.6a Block Signals (WP–XP Section)
+
+One signal per station (not an N/S pair like TO signals) — gates entry into the WP–XP block section, which the Dispatcher controls from both ends. Distinct from TO signals (order delivery); no relationship to §2.9 Block Detection (RFID occupancy sensing, Phase 4 — different topic root).
+
+**Block-signal-capable stations:** WP (gates northbound entry), XP (gates southbound entry).
+
+#### `trains/signal/{station_id}/block/cmd`
+**Direction:** Dispatcher UI → block signal controller
+**QoS:** 1 | **Retained:** Yes
+**`{station_id}`:** `WP` or `XP`
+
+```json
+{ "state": "raised" }
+{ "state": "lowered" }
+```
+
+#### `trains/signal/{station_id}/block/state`
+**Direction:** block signal controller → Dispatcher UI
+**QoS:** 1 | **Retained:** Yes
+
+```json
+{ "state": "raised" }
+```
+
+**Examples:**
+- `trains/signal/WP/block/cmd` — raise/lower WP block signal (exit WP → XP)
+- `trains/signal/XP/block/cmd` — raise/lower XP block signal (exit XP → WP)
+
+Software control implemented 2026-06-16 (`POST /api/signal/block` in the dispatcher app); physical servo hardware at WP/XP is future work — the topic is ready for it.
 
 ---
 

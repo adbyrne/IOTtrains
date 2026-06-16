@@ -500,6 +500,58 @@ class TestSignalArm:
         assert r.status_code == 400
 
 
+# ── Block signal endpoint (WP-XP section) ─────────────────────────────────────
+
+class TestBlockSignal:
+    def test_raise_wp_returns_200(self, client):
+        r = client.post("/api/signal/block", json={"station_id": "WP", "state": "raised"})
+        assert r.status_code == 200
+        assert r.json()["ok"] is True
+
+    def test_lower_xp_returns_200(self, client):
+        r = client.post("/api/signal/block", json={"station_id": "XP", "state": "lowered"})
+        assert r.status_code == 200
+
+    def test_non_block_station_is_400(self, client):
+        r = client.post("/api/signal/block", json={"station_id": "BB", "state": "raised"})
+        assert r.status_code == 400
+
+    def test_invalid_state_is_400(self, client):
+        r = client.post("/api/signal/block", json={"station_id": "WP", "state": "halfway"})
+        assert r.status_code == 400
+
+    def test_initial_state_includes_block_signal_stations(self, client):
+        with client.websocket_connect("/ws") as ws:
+            data = ws.receive_json()
+        assert set(data["block_signal_stations"]) == {"WP", "XP"}
+        assert "block_signals" in data
+
+
+def _inject_block_signal(mqtt_obj, station_id: str, state: str) -> None:
+    import json
+    msg = MagicMock()
+    msg.topic = f"trains/signal/{station_id}/block/state"
+    msg.payload = json.dumps({"state": state}).encode()
+    mqtt_obj._on_message(None, None, msg)
+
+
+class TestBlockSignalMqttHandling:
+    def test_block_state_updates_state(self):
+        from dispatcher.session import AppState
+        state = AppState()
+        mc = _make_real_mqtt_client(state)
+        _inject_block_signal(mc, "WP", "lowered")
+        assert state.block_signals["WP"] == "lowered"
+
+    def test_block_state_independent_per_station(self):
+        from dispatcher.session import AppState
+        state = AppState()
+        mc = _make_real_mqtt_client(state)
+        _inject_block_signal(mc, "WP", "lowered")
+        _inject_block_signal(mc, "XP", "raised")
+        assert state.block_signals == {"WP": "lowered", "XP": "raised"}
+
+
 # ── ACK handling ──────────────────────────────────────────────────────────────
 
 def _inject_to_ack(mqtt_obj, seq: int, station_id: str, rr_time: str = "10:33") -> None:

@@ -3,12 +3,17 @@
 FastAPI application serving the dispatcher UI.
 
 Routes:
-  GET  /                    — dispatcher page
-  POST /api/clock/control   — clock commands (start/pause/reset/set/speed)
-  POST /api/to/issue        — issue a structured train order
-  POST /api/signal/arm      — raise or lower a TO signal arm
-  WS   /ws                  — server-push events (clock_update, station_status, initial_state,
-                              os_report, to_signal_update, to_issued, to_ack)
+  GET  /                       — dispatcher page
+  GET  /yard                   — yardmaster page
+  POST /api/clock/control      — clock commands (start/pause/reset/set/speed)
+  POST /api/to/issue           — issue a structured train order
+  POST /api/signal/arm         — raise or lower a TO signal arm
+  POST /api/yard/consist       — yardmaster submits/updates a consist
+  POST /api/yard/notification  — dispatcher sends a yard notification
+  POST /api/yard/extra_request — yardmaster requests an extra train
+  WS   /ws                     — server-push events (clock_update, station_status, initial_state,
+                                 os_report, to_signal_update, to_issued, to_ack, consist_update,
+                                 yard_notification, extra_request)
 """
 
 import asyncio
@@ -30,7 +35,7 @@ BASE_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(BASE_DIR))
 
 from common import timetable
-from .session import AppState, STATION_IDS, STATION_NAMES, TO_SIGNAL_STATIONS
+from .session import AppState, STATION_IDS, STATION_NAMES, TO_SIGNAL_STATIONS, BLOCK_SIGNAL_STATIONS
 from .mqtt_client import MQTTClient
 
 logging.basicConfig(
@@ -44,10 +49,20 @@ CONFIG_FILE = BASE_DIR / "config.json"
 TO_TYPES_FILE = BASE_DIR / "data" / "to_types.json"
 ACTIVE_FORMS_FILE  = BASE_DIR / "data" / "active_forms.json"
 LAYOUT_RULES_FILE  = BASE_DIR / "data" / "layout_rules.json"
+YARD_FILE = BASE_DIR / "data" / "yard.json"
 TEMPLATE_DIR = Path(__file__).parent / "templates"
 STATIC_DIR = Path(__file__).parent / "static"
 SUBDIVISION = "NLS"
-DISPATCHER_VERSION = "2.3"
+DISPATCHER_VERSION = "2.5"
+YARDMASTER_VERSION = "2.0b"
+
+_YARD_NOTIFICATION_TYPES = {
+    "arrival": "train",
+    "departure_change": "train",
+    "new_train": "engine",
+    "annulment": "train",
+    "departure_time_set": "engine",
+}
 
 _ALL_FORM_LETTERS = set("ABCEFGHJKLMPRSTUVWXYZ")
 _basic_security = HTTPBasic()
@@ -88,6 +103,44 @@ def build_next_trains(clock: dict) -> dict[str, dict]:
     }
 
 
+def build_yard_departures(day: int) -> list[dict]:
+    """WP-departing (northbound) trains for `day`, merged with live consist state,
+    plus any not-yet-cleared extra trains appended after the scheduled ones (§3.3)."""
+    scheduled = []
+    for train in timetable.active_trains(SUBDIVISION, day):
+        if train["direction"] != "N":
+            continue
+        schedule = train.get("schedule", [])
+        if not schedule or schedule[0]["location"] != "WP":
+            continue
+        number = train["number"]
+        scheduled.append({
+            "train": number,
+            "direction": "N",
+            "service": train["service"],
+            "class": train["class"],
+            "depart": schedule[0].get("depart"),
+            "extra": False,
+            "consist": state.consists.get(number),
+        })
+    scheduled.sort(key=lambda t: t["depart"] or "99:99")
+
+    extras = [
+        {
+            "train": num,
+            "direction": c.get("direction", "N"),
+            "service": "Extra",
+            "class": None,
+            "depart": None,
+            "extra": True,
+            "consist": c,
+        }
+        for num, c in state.consists.items()
+        if c.get("extra") and c.get("state") != "cleared"
+    ]
+    return scheduled + extras
+
+
 def build_initial_state() -> dict:
     return {
         "type": "initial_state",
@@ -103,8 +156,15 @@ def build_initial_state() -> dict:
         "station_ids": STATION_IDS,
         "station_names": STATION_NAMES,
         "to_signal_stations": list(TO_SIGNAL_STATIONS),
+        "block_signal_stations": list(BLOCK_SIGNAL_STATIONS),
+        "block_signals": state.block_signals,
         "station_data": timetable.station_display_data(SUBDIVISION, STATION_IDS),
         "extra_times": timetable.inter_station_times(SUBDIVISION, STATION_IDS),
+        "consists": state.consists,
+        "yard_tracks": state.yard_tracks,
+        "yard_notifications": state.yard_notifications,
+        "coe_trains": timetable.coe_schedule(state.clock.get("day") or 1),
+        "yard_departures": build_yard_departures(state.clock.get("day") or 1),
     }
 
 
@@ -155,9 +215,16 @@ async def lifespan(app: FastAPI):
     try:
         layout_rules = json.loads(LAYOUT_RULES_FILE.read_text())
         layout_rules.setdefault("signal_reset_mode", "hard")
+        layout_rules.setdefault("auto_notify_ym_arrival", False)
     except (FileNotFoundError, json.JSONDecodeError):
-        layout_rules = {"superior_direction": "S", "signal_reset_mode": "hard"}
-    mqtt_client = MQTTClient(config, state, build_next_trains)
+        layout_rules = {"superior_direction": "S", "signal_reset_mode": "hard",
+                         "auto_notify_ym_arrival": False}
+    try:
+        yard_data = json.loads(YARD_FILE.read_text())
+        state.yard_tracks = yard_data.get("tracks", [])
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        log.error("yard.json error: %s", e)
+    mqtt_client = MQTTClient(config, state, build_next_trains, lambda: layout_rules)
     mqtt_client.start(asyncio.get_running_loop())
     log.info("Dispatcher started (v%s)", DISPATCHER_VERSION)
     yield
@@ -247,8 +314,28 @@ async def to_issue(request: Request):
     event = {"type": "to_issued", "to": to_entry}
     await state.broadcast(event)
 
+    if to_type == "running_extra":
+        await _set_extra_departure_time(fields.get("engine"), fields.get("departure_rr_time"))
+
     log.info("TO #%d issued: %s → %s", seq, to_type, addressed_to)
     return JSONResponse({"ok": True, "seq": seq})
+
+
+async def _set_extra_departure_time(engine: str | None, departure_rr_time: str | None) -> None:
+    """Issuing a running_extra TO is when the dispatcher commits to an approximate
+    departure time for that extra — update the matching consist record (found by
+    engine number) so the Yardmaster's Departing Trains entry shows it instead of
+    the original request time."""
+    if not engine or not departure_rr_time or mqtt_client is None:
+        return
+    for train_id, c in state.consists.items():
+        if c.get("extra") and str(c.get("engine")) == str(engine):
+            updated = dict(c)
+            updated["departure_rr_time"] = departure_rr_time
+            entry = state.record_consist(train_id, updated)
+            mqtt_client.publish_yard_consist(train_id, entry)
+            await state.broadcast({"type": "consist_update", "consist": entry})
+            break
 
 
 @app.post("/api/signal/arm")
@@ -282,6 +369,141 @@ async def signal_arm(request: Request):
     })
 
     return JSONResponse({"ok": True})
+
+
+@app.post("/api/signal/block")
+async def signal_block(request: Request):
+    if mqtt_client is None:
+        return JSONResponse({"error": "MQTT not connected"}, status_code=503)
+    body = await request.json()
+
+    station_id = body.get("station_id", "")
+    arm_state  = body.get("state", "")
+
+    if station_id not in BLOCK_SIGNAL_STATIONS:
+        return JSONResponse({"error": f"{station_id!r} has no block signal"}, status_code=400)
+    if arm_state not in ("raised", "lowered"):
+        return JSONResponse({"error": "state must be raised or lowered"}, status_code=400)
+
+    mqtt_client.publish_block_signal(station_id, arm_state)
+
+    state.block_signals[station_id] = arm_state
+    await state.broadcast({
+        "type": "block_signal_update",
+        "station_id": station_id,
+        "state": arm_state,
+    })
+
+    return JSONResponse({"ok": True})
+
+
+@app.get("/yard")
+async def yard_page(request: Request):
+    return templates.TemplateResponse(request, "yard.html",
+                                      {"version": YARDMASTER_VERSION})
+
+
+@app.post("/api/yard/consist")
+async def yard_consist(request: Request):
+    if mqtt_client is None:
+        return JSONResponse({"error": "MQTT not connected"}, status_code=503)
+    body = await request.json()
+
+    train = body.get("train")
+    consist_state = body.get("state", "")
+    extra = bool(body.get("extra", False))
+
+    if not train:
+        return JSONResponse({"error": "missing train"}, status_code=422)
+    if consist_state not in ("assembling", "car_block_ready", "ready"):
+        return JSONResponse(
+            {"error": "state must be assembling, car_block_ready, or ready"}, status_code=422
+        )
+    if consist_state == "car_block_ready" and not extra:
+        return JSONResponse(
+            {"error": "car_block_ready is only valid for extra trains"}, status_code=422
+        )
+    if consist_state == "ready" and (not body.get("engine") or not body.get("caboose")):
+        return JSONResponse(
+            {"error": "engine and caboose are required to mark a consist ready"}, status_code=422
+        )
+
+    payload = {k: v for k, v in body.items() if k != "train"}
+    payload["state"] = consist_state
+    payload["extra"] = extra
+
+    mqtt_client.publish_yard_consist(train, payload)
+    entry = state.record_consist(train, payload)
+    await state.broadcast({"type": "consist_update", "consist": entry})
+
+    return JSONResponse({"ok": True, "consist": entry})
+
+
+@app.post("/api/yard/notification")
+async def yard_notification(request: Request):
+    if mqtt_client is None:
+        return JSONResponse({"error": "MQTT not connected"}, status_code=503)
+    body = await request.json()
+
+    notif_type = body.get("type", "")
+    key_field = _YARD_NOTIFICATION_TYPES.get(notif_type)
+    if key_field is None:
+        return JSONResponse({"error": f"unknown notification type: {notif_type!r}"}, status_code=422)
+    if not body.get(key_field):
+        return JSONResponse({"error": f"missing {key_field!r}"}, status_code=422)
+
+    clock = state.clock
+    entry = dict(body)
+    entry["rr_time"] = f"{clock.get('hour', 0):02d}:{clock.get('minute', 0):02d}"
+    entry["day"] = clock.get("day", 1)
+
+    mqtt_client.publish_yard_notification(entry)
+    state.record_notification(entry)
+    await state.broadcast({"type": "yard_notification", "notification": entry})
+
+    return JSONResponse({"ok": True})
+
+
+@app.post("/api/yard/extra_request")
+async def yard_extra_request(request: Request):
+    if mqtt_client is None:
+        return JSONResponse({"error": "MQTT not connected"}, status_code=503)
+    body = await request.json()
+    direction = body.get("direction", "")
+    if direction not in ("N", "S"):
+        return JSONResponse({"error": "direction must be N or S"}, status_code=422)
+
+    clock = state.clock
+    rr_time = f"{clock.get('hour', 0):02d}:{clock.get('minute', 0):02d}"
+
+    # Placeholder consist so the YM can start building immediately — no engine
+    # number exists yet. Identified as "XTRA{n}" until the YM enters one; see
+    # occupantTrainId() in yard.js. The dispatcher only issues the running-extra
+    # TO once the YM separately notifies them the full consist (incl. engine +
+    # caboose) is ready — see /api/to/issue's running_extra handling below.
+    placeholder_id = f"XTRA{state.next_extra_seq()}"
+    consist_payload = {
+        "state": "assembling",
+        "extra": True,
+        "direction": direction,
+        "cars_loaded": body.get("approx_loads"),
+        "cars_empty": body.get("approx_empties"),
+        "requested_rr_time": rr_time,
+    }
+    mqtt_client.publish_yard_consist(placeholder_id, consist_payload)
+    consist_entry = state.record_consist(placeholder_id, consist_payload)
+    await state.broadcast({"type": "consist_update", "consist": consist_entry})
+
+    event = {
+        "type": "extra_request",
+        "direction": direction,
+        "approx_loads": body.get("approx_loads"),
+        "approx_empties": body.get("approx_empties"),
+        "rr_time": rr_time,
+        "train": placeholder_id,
+    }
+    await state.broadcast(event)
+    return JSONResponse({"ok": True, "train": placeholder_id})
 
 
 @app.get("/manage")
@@ -318,11 +540,13 @@ async def post_layout_rules(request: Request, _=Depends(_require_owner)):
     body = await request.json()
     sup_dir = body.get("superior_direction", "")
     reset_mode = body.get("signal_reset_mode", "hard")
+    auto_notify = bool(body.get("auto_notify_ym_arrival", False))
     if sup_dir not in ("N", "S"):
         return JSONResponse({"error": "superior_direction must be N or S"}, status_code=400)
     if reset_mode not in ("hard", "soft"):
         return JSONResponse({"error": "signal_reset_mode must be hard or soft"}, status_code=400)
-    layout_rules = {"superior_direction": sup_dir, "signal_reset_mode": reset_mode}
+    layout_rules = {"superior_direction": sup_dir, "signal_reset_mode": reset_mode,
+                     "auto_notify_ym_arrival": auto_notify}
     LAYOUT_RULES_FILE.write_text(json.dumps(layout_rules, indent=2))
     return JSONResponse({"ok": True, "layout_rules": layout_rules})
 

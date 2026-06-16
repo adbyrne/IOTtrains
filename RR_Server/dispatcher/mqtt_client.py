@@ -19,22 +19,26 @@ log = logging.getLogger(__name__)
 TOPIC_CLOCK_TIME = "trains/clock/time"
 TOPIC_STATION_STATUS = "trains/station/+/status"
 TOPIC_TO_STATE = "trains/signal/+/to/+/state"
+TOPIC_BLOCK_STATE = "trains/signal/+/block/state"
 TOPIC_CLOCK_CONTROL = "trains/clock/control"
 TOPIC_OS = "trains/os/+"
 TOPIC_TO_ACK = "trains/to/+/ack"
 TOPIC_TO_TRAIN_RCVD = "trains/to/+/train_rcvd"
+TOPIC_YARD_CONSIST = "trains/yard/consist/+"
+TOPIC_YARD_NOTIFICATION = "trains/yard/notification"
 
 CLIENT_ID = "rr_dispatcher"
 
 
 class MQTTClient:
-    def __init__(self, config: dict, state: AppState, build_next_trains):
+    def __init__(self, config: dict, state: AppState, build_next_trains, get_layout_rules=lambda: {}):
         broker = config["broker"]
         self._host: str = broker["host"]
         self._port: int = broker.get("port", 1883)
         self._password: str = config["credentials"][CLIENT_ID]
         self._state = state
         self._build_next_trains = build_next_trains
+        self._get_layout_rules = get_layout_rules
         self._loop: asyncio.AbstractEventLoop | None = None
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
@@ -72,6 +76,17 @@ class MQTTClient:
         topic = f"trains/signal/{station_id}/to/{direction}/cmd"
         self._client.publish(topic, json.dumps({"state": arm_state}), qos=1, retain=True)
 
+    def publish_block_signal(self, station_id: str, arm_state: str) -> None:
+        topic = f"trains/signal/{station_id}/block/cmd"
+        self._client.publish(topic, json.dumps({"state": arm_state}), qos=1, retain=True)
+
+    def publish_yard_consist(self, train: str, payload: dict) -> None:
+        topic = f"trains/yard/consist/{train}"
+        self._client.publish(topic, json.dumps(payload), qos=1, retain=True)
+
+    def publish_yard_notification(self, payload: dict) -> None:
+        self._client.publish(TOPIC_YARD_NOTIFICATION, json.dumps(payload), qos=1)
+
     # ── Background thread ────────────────────────────────────────────────────
 
     def _run(self) -> None:
@@ -96,9 +111,11 @@ class MQTTClient:
             (TOPIC_CLOCK_TIME, 0),
             (TOPIC_STATION_STATUS, 1),
             (TOPIC_TO_STATE, 1),
+            (TOPIC_BLOCK_STATE, 1),
             (TOPIC_OS, 1),
             (TOPIC_TO_ACK, 1),
             (TOPIC_TO_TRAIN_RCVD, 1),
+            (TOPIC_YARD_CONSIST, 1),
         ])
 
     def _on_disconnect(self, client, userdata, flags, reason_code, properties) -> None:
@@ -133,6 +150,19 @@ class MQTTClient:
                 }
             else:
                 return
+        elif msg.topic.startswith("trains/signal/") and msg.topic.endswith("/block/state"):
+            # trains/signal/{station_id}/block/state
+            parts = msg.topic.split("/")
+            if len(parts) != 5:
+                return
+            station_id = parts[2]
+            sig_state = payload.get("state")
+            self._state.block_signals[station_id] = sig_state
+            event = {
+                "type": "block_signal_update",
+                "station_id": station_id,
+                "state": sig_state,
+            }
         elif msg.topic.startswith("trains/signal/") and msg.topic.endswith("/state"):
             # trains/signal/{station_id}/to/{dir}/state
             parts = msg.topic.split("/")
@@ -165,6 +195,26 @@ class MQTTClient:
             if len(self._state.os_log) > OS_LOG_MAX:
                 self._state.os_log = self._state.os_log[:OS_LOG_MAX]
             event = {"type": "os_report", "entry": entry}
+
+            # Auto-notify YM of arrival when enabled (owner-configurable in
+            # /manage, default off — manual Notify YM is the default flow;
+            # this just saves the dispatcher a click when turned on).
+            if (entry["direction"] == "S" and entry["station_id"] == "XP"
+                    and self._get_layout_rules().get("auto_notify_ym_arrival")):
+                notif = {
+                    "type": "arrival",
+                    "train": entry["train"],
+                    "direction": "S",
+                    "expected_rr_time": entry["rr_time"],
+                    "rr_time": entry["rr_time"],
+                    "day": entry["day"],
+                }
+                self._state.record_notification(notif)
+                if self._loop and not self._stop.is_set():
+                    asyncio.run_coroutine_threadsafe(
+                        self._state.broadcast({"type": "yard_notification", "notification": notif}),
+                        self._loop,
+                    )
         elif msg.topic.startswith("trains/to/") and msg.topic.endswith("/ack"):
             # trains/to/{station_id}/ack
             parts = msg.topic.split("/")
@@ -208,6 +258,13 @@ class MQTTClient:
                 "train":   train,
                 "rr_time": rr_time,
             }
+        elif msg.topic.startswith("trains/yard/consist/"):
+            parts = msg.topic.split("/")
+            if len(parts) != 4:
+                return
+            train = parts[3]
+            entry = self._state.record_consist(train, payload)
+            event = {"type": "consist_update", "consist": entry}
         else:
             return
 
