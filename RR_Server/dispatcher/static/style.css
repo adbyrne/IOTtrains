@@ -401,6 +401,8 @@ main { padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; }
 .block-arm-btn:hover { background: #333; }
 .block-arm-btn.clear { color: #4caf50; }
 .block-arm-btn.stop  { color: #e03030; }
+.block-arm-btn.pulsing { cursor: default; opacity: 0.7; }
+.block-arm-btn.pulsing:hover { background: none; }
 
 /* ── Modal overlay ───────────────────────────────────────────────── */
 .modal-overlay {

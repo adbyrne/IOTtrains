@@ -373,7 +373,7 @@ function buildStationGrid(ids, names) {
             : `<span class="col-runtime col-runtime-none">—</span>`;
 
         const blockArm = blockSignalStations.has(sid)
-            ? ` <span id="block-${sid}">${blockArmHtml(sid, _blockSignalStates[sid] || 'raised')}</span>` : '';
+            ? ` <span id="block-${sid}">${blockArmHtml(sid, _blockSignalStates[sid] || 'lowered')}</span>` : '';
 
         const row = document.createElement('div');
         row.className = 'station-row';
@@ -393,9 +393,8 @@ function buildStationGrid(ids, names) {
     table.addEventListener('click', e => {
         const blockBtn = e.target.closest('.block-arm-btn');
         if (blockBtn) {
-            const sid = blockBtn.dataset.sid;
-            const next = blockBtn.dataset.state === 'raised' ? 'lowered' : 'raised';
-            blockSignalCmd(sid, next);
+            if (blockBtn.dataset.state === 'raised') return;  // pulse already active — ignore
+            blockSignalCmd(blockBtn.dataset.sid);
             return;
         }
 
@@ -448,19 +447,22 @@ function armHtml(sid, dir, state) {
 }
 
 // WP-XP block section signal — one per station (not N/S pair), diamond symbol
-// to read as visually distinct from the triangular TO-order arms. Raised =
-// block clear; lowered = block occupied/stop. No ACK-gating — block status is
-// the dispatcher's own judgment call, not tied to outstanding train orders.
+// to read as visually distinct from the triangular TO-order arms. Momentary:
+// normally lowered (stop); a click triggers a real-time pulse to raised
+// (clear) that auto-reverts after BLOCK_SIGNAL_PULSE_SECONDS (server-side).
+// No ACK-gating — block status is the dispatcher's own judgment call, not
+// tied to outstanding train orders. A click while already raised is ignored
+// (pulse must finish; button reads as disabled).
 const BLOCK_SIGNAL_LABEL = { WP: 'exit WP → XP', XP: 'exit XP → WP' };
 
 function blockArmHtml(sid, state) {
-    const isStopped = state === 'lowered';
+    const isStopped = state !== 'raised';
     const cls = isStopped ? 'stop' : 'clear';
     const sym = isStopped ? '◆' : '◇';  // filled / open diamond
     const title = `Block signal — ${BLOCK_SIGNAL_LABEL[sid] || sid} ` +
-        (isStopped ? '(STOP — click to clear)' : '(CLEAR — click to stop)');
-    return `<button class="block-arm-btn ${cls}" data-sid="${sid}" ` +
-        `data-state="${state || 'raised'}" title="${title}">${sym}</button>`;
+        (isStopped ? '(STOP — click to clear, 60s pulse)' : '(CLEARING — pulse active, wait for reset)');
+    return `<button class="block-arm-btn ${cls}${isStopped ? '' : ' pulsing'}" data-sid="${sid}" ` +
+        `data-state="${state || 'lowered'}" title="${title}">${sym}</button>`;
 }
 
 function updateToSignal(sid, dir, state) {
@@ -557,13 +559,14 @@ async function signalArmCmd(sid, dir, state) {
     }
 }
 
-async function blockSignalCmd(sid, state) {
+async function blockSignalCmd(sid) {
     try {
-        await fetch('/api/signal/block', {
+        const r = await fetch('/api/signal/block', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ station_id: sid, state }),
+            body: JSON.stringify({ station_id: sid }),
         });
+        if (!r.ok && r.status !== 409) setStatus('Block signal command failed', true);
     } catch {
         setStatus('Block signal command failed', true);
     }

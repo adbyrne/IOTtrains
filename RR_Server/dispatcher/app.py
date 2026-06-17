@@ -55,6 +55,7 @@ STATIC_DIR = Path(__file__).parent / "static"
 SUBDIVISION = "NLS"
 DISPATCHER_VERSION = "2.5"
 YARDMASTER_VERSION = "2.0b"
+BLOCK_SIGNAL_PULSE_SECONDS = 60  # real seconds a triggered block signal stays "raised" before auto-revert
 
 _YARD_NOTIFICATION_TYPES = {
     "arrival": "train",
@@ -224,6 +225,7 @@ async def lifespan(app: FastAPI):
         state.yard_tracks = yard_data.get("tracks", [])
     except (FileNotFoundError, json.JSONDecodeError) as e:
         log.error("yard.json error: %s", e)
+    state.block_signals = {sid: "lowered" for sid in BLOCK_SIGNAL_STATIONS}
     mqtt_client = MQTTClient(config, state, build_next_trains, lambda: layout_rules)
     mqtt_client.start(asyncio.get_running_loop())
     log.info("Dispatcher started (v%s)", DISPATCHER_VERSION)
@@ -373,26 +375,42 @@ async def signal_arm(request: Request):
 
 @app.post("/api/signal/block")
 async def signal_block(request: Request):
+    """Trigger a momentary block-signal clear pulse.
+
+    The signal is normally "lowered" (stop). A trigger raises it for
+    BLOCK_SIGNAL_PULSE_SECONDS real seconds, then it auto-reverts. There is
+    no manual "lowered" command — only a trigger. A trigger while a pulse is
+    already active for that station is ignored (409).
+    """
     if mqtt_client is None:
         return JSONResponse({"error": "MQTT not connected"}, status_code=503)
     body = await request.json()
 
     station_id = body.get("station_id", "")
-    arm_state  = body.get("state", "")
 
     if station_id not in BLOCK_SIGNAL_STATIONS:
         return JSONResponse({"error": f"{station_id!r} has no block signal"}, status_code=400)
-    if arm_state not in ("raised", "lowered"):
-        return JSONResponse({"error": "state must be raised or lowered"}, status_code=400)
+    if state.block_signals.get(station_id) == "raised":
+        return JSONResponse({"error": "pulse already active"}, status_code=409)
 
-    mqtt_client.publish_block_signal(station_id, arm_state)
+    async def _set(arm_state: str) -> None:
+        mqtt_client.publish_block_signal(station_id, arm_state)
+        state.block_signals[station_id] = arm_state
+        await state.broadcast({
+            "type": "block_signal_update",
+            "station_id": station_id,
+            "state": arm_state,
+        })
 
-    state.block_signals[station_id] = arm_state
-    await state.broadcast({
-        "type": "block_signal_update",
-        "station_id": station_id,
-        "state": arm_state,
-    })
+    async def _pulse() -> None:
+        try:
+            await asyncio.sleep(BLOCK_SIGNAL_PULSE_SECONDS)
+            await _set("lowered")
+        finally:
+            state.block_signal_tasks.pop(station_id, None)
+
+    await _set("raised")
+    state.block_signal_tasks[station_id] = asyncio.create_task(_pulse())
 
     return JSONResponse({"ok": True})
 

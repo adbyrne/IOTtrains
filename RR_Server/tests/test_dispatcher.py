@@ -503,28 +503,40 @@ class TestSignalArm:
 # ── Block signal endpoint (WP-XP section) ─────────────────────────────────────
 
 class TestBlockSignal:
-    def test_raise_wp_returns_200(self, client):
-        r = client.post("/api/signal/block", json={"station_id": "WP", "state": "raised"})
+    def test_trigger_wp_returns_200_and_raises(self, client):
+        r = client.post("/api/signal/block", json={"station_id": "WP"})
         assert r.status_code == 200
         assert r.json()["ok"] is True
-
-    def test_lower_xp_returns_200(self, client):
-        r = client.post("/api/signal/block", json={"station_id": "XP", "state": "lowered"})
-        assert r.status_code == 200
+        from dispatcher.app import state as app_state
+        assert app_state.block_signals["WP"] == "raised"
 
     def test_non_block_station_is_400(self, client):
-        r = client.post("/api/signal/block", json={"station_id": "BB", "state": "raised"})
+        r = client.post("/api/signal/block", json={"station_id": "BB"})
         assert r.status_code == 400
 
-    def test_invalid_state_is_400(self, client):
-        r = client.post("/api/signal/block", json={"station_id": "WP", "state": "halfway"})
-        assert r.status_code == 400
+    def test_retrigger_while_active_is_409(self, client):
+        r1 = client.post("/api/signal/block", json={"station_id": "XP"})
+        assert r1.status_code == 200
+        r2 = client.post("/api/signal/block", json={"station_id": "XP"})
+        assert r2.status_code == 409
+
+    def test_pulse_auto_reverts_after_duration(self, client):
+        import time
+        import dispatcher.app as app_module
+        from dispatcher.app import state as app_state
+
+        with patch.object(app_module, "BLOCK_SIGNAL_PULSE_SECONDS", 0.05):
+            r = client.post("/api/signal/block", json={"station_id": "WP"})
+            assert r.status_code == 200
+            assert app_state.block_signals["WP"] == "raised"
+            time.sleep(0.3)
+            assert app_state.block_signals["WP"] == "lowered"
 
     def test_initial_state_includes_block_signal_stations(self, client):
         with client.websocket_connect("/ws") as ws:
             data = ws.receive_json()
         assert set(data["block_signal_stations"]) == {"WP", "XP"}
-        assert "block_signals" in data
+        assert data["block_signals"] == {"WP": "lowered", "XP": "lowered"}
 
 
 def _inject_block_signal(mqtt_obj, station_id: str, state: str) -> None:

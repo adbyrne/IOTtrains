@@ -11,6 +11,8 @@ TO_SIGNAL_STATIONS = {"XP", "BB", "JC", "MC", "SK"}
 # WP-XP block section boundary signals — distinct from TO signals (order
 # delivery) and station-specific (one per station, not N/S pairs): WP's
 # signal gates northbound entry into the block; XP's gates southbound entry.
+# Momentary: normally "lowered" (stop); a dispatcher trigger pulses to
+# "raised" (clear) for BLOCK_SIGNAL_PULSE_SECONDS, then auto-reverts.
 BLOCK_SIGNAL_STATIONS = {"WP", "XP"}
 
 STATION_NAMES = {
@@ -34,6 +36,7 @@ class AppState:
     stations: dict = field(default_factory=dict)    # station_id -> status dict
     to_signals: dict = field(default_factory=dict)  # station_id -> {"N": state, "S": state}
     block_signals: dict = field(default_factory=dict)  # station_id -> "raised"|"lowered" (WP, XP only)
+    block_signal_tasks: dict = field(default_factory=dict)  # station_id -> asyncio.Task (pulse auto-revert)
     os_log: list = field(default_factory=list)      # newest first, capped at OS_LOG_MAX
     to_log: list = field(default_factory=list)      # newest first, capped at TO_LOG_MAX
     to_seq: int = 0

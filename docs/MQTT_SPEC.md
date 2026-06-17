@@ -268,6 +268,8 @@ One signal per station (not an N/S pair like TO signals) — gates entry into th
 
 **Block-signal-capable stations:** WP (gates northbound entry), XP (gates southbound entry).
 
+**Momentary behavior (added 2026-06-17):** The signal is normally `lowered` (stop). A dispatcher trigger publishes `raised` (clear); the dispatcher server (not the signal hardware) auto-reverts it to `lowered` after `BLOCK_SIGNAL_PULSE_SECONDS` (60 real seconds) by publishing a second `cmd` message. There is no dispatcher action that leaves the signal raised indefinitely, and a trigger while already raised is rejected (409) rather than restarting or extending the pulse. The `cmd`/`state` payload schema is unchanged — a future physical signal controller just reacts to the two messages it receives 60 seconds apart and needs no awareness that the cycle is "momentary"; all timing logic lives server-side.
+
 #### `trains/signal/{station_id}/block/cmd`
 **Direction:** Dispatcher UI → block signal controller
 **QoS:** 1 | **Retained:** Yes
@@ -290,7 +292,7 @@ One signal per station (not an N/S pair like TO signals) — gates entry into th
 - `trains/signal/WP/block/cmd` — raise/lower WP block signal (exit WP → XP)
 - `trains/signal/XP/block/cmd` — raise/lower XP block signal (exit XP → WP)
 
-Software control implemented 2026-06-16 (`POST /api/signal/block` in the dispatcher app); physical servo hardware at WP/XP is future work — the topic is ready for it.
+Software control implemented 2026-06-16 (`POST /api/signal/block` in the dispatcher app), momentary pulse behavior added 2026-06-17 (see above); physical servo hardware at WP/XP is future work — the topic is ready for it.
 
 ---
 
