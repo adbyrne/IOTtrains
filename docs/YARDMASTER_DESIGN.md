@@ -1,8 +1,8 @@
 # NY&E WP Yardmaster Terminal — Design Document
 
-**Version:** 1.2  
-**Date:** 2026-06-16  
-**Status:** Session 2.0a + 2.0b implemented and deployed (software). RPi3 physical kiosk provisioning (§9) pending.
+**Version:** 1.3  
+**Date:** 2026-06-17  
+**Status:** Session 2.0a + 2.0b implemented and deployed (software). RPi3 physical kiosk provisioning (§9) pending. Engine/caboose roster (§14) designed, not yet implemented.
 
 ---
 
@@ -715,3 +715,76 @@ These items were identified during planning and require further thought before o
 14. **C&O extras as owner function** — Owner adds C&O extra trains to session.json before the session. YM terminal displays them in the C&O footer. No dispatcher or live system involvement. The owner management UI for this is a Management Tools design item.
 
 15. **Empty car type requirements** — The question of which specific empty car types (FM, XM, HM, etc.) are needed for delivery to industries on a given train is the Trainmaster's output, surfaced to the YM via the session.json manifest. How this is presented in the consist modal (alongside the numeric entry) needs to be designed as part of session.json integration.
+
+---
+
+## 14. Engine/Caboose Roster (Design — 2026-06-17)
+
+**Motivation:** Engine and Caboose fields in the consist modals (§3.7, §3.8) are currently free-keypad numeric entry. The fleet is small and fixed between operating sessions — a tap-to-select roster avoids YM mis-keying a road number and matches the existing Track selector pattern (§3.7: `[T1] [T2] [T3]...`).
+
+### 14.1 Data: `RR_Server/data/roster.json` (new file)
+
+A new file, separate from `yard.json` (track infrastructure) and `timetable.json` (schedule data) — the roster is equipment data with its own lifecycle (a future CC&W Manager / Management Tools session will extend it with bad-order status, per the deferred "Bad order Yardmaster feature").
+
+```json
+{
+  "version": "1.0",
+  "engines": [
+    {"road_number": "10", "road_name": "NY&E", "type": "0-6-0",   "max_cars": 6,  "dcc_addr": 10, "sound": false, "road_eligible": false, "notes": "Yard/mine switcher only"},
+    {"road_number": "11", "road_name": "NY&E", "type": "0-6-0",   "max_cars": 6,  "dcc_addr": 11, "sound": false, "road_eligible": false, "notes": "Yard/mine switcher only"},
+    {"road_number": "12", "road_name": "NY&E", "type": "0-6-0",   "max_cars": 6,  "dcc_addr": 12, "sound": false, "road_eligible": false, "notes": "Yard/mine switcher only"},
+    {"road_number": "14", "road_name": "NY&E", "type": "0-6-0",   "max_cars": 6,  "dcc_addr": 14, "sound": false, "road_eligible": false, "notes": "Yard/mine switcher only"},
+    {"road_number": "21", "road_name": "NY&E", "type": "4-4-0",   "max_cars": 6,  "dcc_addr": 21, "sound": true,  "road_eligible": true},
+    {"road_number": "22", "road_name": "NY&E", "type": "4-4-0",   "max_cars": 6,  "dcc_addr": 22, "sound": true,  "road_eligible": true},
+    {"road_number": "30", "road_name": "NY&E", "type": "2-6-0",   "max_cars": 6,  "dcc_addr": 30, "sound": false, "road_eligible": true},
+    {"road_number": "46", "road_name": "NY&E", "type": "4-6-0",   "max_cars": 6,  "dcc_addr": 46, "sound": false, "road_eligible": true}
+  ],
+  "cabooses": [
+    {"road_number": "10", "road_name": "NY&E"},
+    {"road_number": "11", "road_name": "NY&E"},
+    {"road_number": "12", "road_name": "NY&E"},
+    {"road_number": "13", "road_name": "NY&E"},
+    {"road_number": "14", "road_name": "NY&E"},
+    {"road_number": "15", "road_name": "NY&E"}
+  ]
+}
+```
+
+- **Engines:** the 8 NY&E road engines from `NYE_OPERATIONS.md` §5, minus the two foreign-road units (C&O #1592, Pennsylvania #1492) — those operate exclusively on C&O tracks at Williamsport and are never assigned to an NY&E consist the YM builds.
+- **`road_eligible`** — new field, defaults `true`. Engines 10/11/12/14 (the four 0-6-0 switchers) are set `false`: restricted to yard switching and the mine branches (QM1/QM2, Kiel, O'Haras, Timber Ltd) and not eligible for road (scheduled or extra) consists. No other engine is restricted today, but the field is per-engine rather than hardcoded to these four specifically so it generalizes — toggling any future engine's road eligibility is a `roster.json` edit, no schema change needed. A dedicated management UI for toggling this is a future Management Tools candidate, not part of this design.
+- **Cabooses:** road numbers 10–15 (6 cabooses) — first roster entry for cabooses; `NYE_OPERATIONS.md` §6 only ever covered the 94 freight cars, not cabooses, so this is new data, not a migration.
+- **Owner-edited:** same convention as `yard.json` — owner edits the file directly and restarts `rr-dispatcher`; no management UI needed yet.
+
+### 14.2 Server changes
+
+- `AppState` gains `roster: dict` (engines + cabooses lists), loaded from `roster.json` at startup — mirrors how `yard_tracks` loads from `yard.json`.
+- `initial_state` WS event extended with `roster: {engines: [...], cabooses: [...]}`.
+- No new API endpoints — this is read-only reference data for populating the selector UI, not something the YM submits changes to.
+
+### 14.3 UI change: tap-to-select button grid
+
+Replaces the readonly numpad-target text inputs (`cs-engine`, `cs-caboose` in the scheduled-train modal; `ce-engine`, `ce-caboose` in the extra-train Stage 2 modal — see `yard.html`/`yard.js`).
+
+```
+│  Engine: [21] [22] [30] [46]                                 │
+│  Caboose: [10] [11] [12] [13] [14] [15]                      │
+```
+
+- Buttons rendered from `roster.engines`/`roster.cabooses` (populated client-side from the `initial_state`/reconnect payload, same pattern as the Track selector buttons).
+- **Engine grid is filtered to `road_eligible: true` entries** — both the scheduled-train modal and the extra-train Stage 2 modal build consists for trains that run the mainline, so engines 10/11/12/14 never appear in either. Neither modal represents a yard-local switching job, so there's no path in the YM terminal where a restricted engine would need to be selectable — they're used for yard/mine switching entirely outside the digital consist-tracking system.
+- Tap to select (highlighted when active), tap again or tap another to change — same toggle behavior as the existing Track button row.
+- The shared numpad (§3.7 mockup) keeps its role for **Loads** and **Empties** only; Engine/Caboose no longer route through `data-field` numpad targeting.
+- Required-field validation is unchanged: Engine and Caboose still required for `[SUBMIT — MARK READY]` (scheduled trains) and `[SUBMIT — NOTIFY DISPATCHER & CREW]` (extras Stage 2); track field still flashes amber on a submit attempt with a field unset, same as today.
+
+### 14.4 Tests to add (`tests/test_yard.py`)
+
+| Test | Description |
+|------|--------------|
+| `test_roster_loads_from_file` | `roster.json` loads correctly at startup |
+| `test_yard_initial_state_includes_roster` | WS `initial_state` includes `roster.engines` and `roster.cabooses` |
+
+### 14.5 Out of scope for this design
+
+- Bad-order flagging/filtering of roster equipment — separate "Bad order Yardmaster feature" session (already queued, needs its own design).
+- Editing the roster from a UI — owner edits `roster.json` directly, same as `yard.json`.
+- DCC address use in the consist flow — `dcc_addr` is carried in the data for future use (e.g. a JMRI throttle integration) but the consist modal only needs `road_number` today.
