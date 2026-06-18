@@ -1,8 +1,8 @@
 # NY&E WP Yardmaster Terminal — Design Document
 
-**Version:** 1.3  
-**Date:** 2026-06-17  
-**Status:** Session 2.0a + 2.0b implemented and deployed (software). RPi3 physical kiosk provisioning (§9) pending. Engine/caboose roster (§14) designed, not yet implemented.
+**Version:** 1.5  
+**Date:** 2026-06-18  
+**Status:** Session 2.0a + 2.0b implemented and deployed (software). RPi3 kiosk provisioning (§9) software-complete and visually confirmed rendering correctly on an HDMI monitor. **Open: power supply under-voltage (§9.9) not yet resolved** — must be confirmed clean before treating the device as reliable. Touch verification still pending (ELECROW touchscreen not yet attached). Engine/caboose roster (§14) designed, not yet implemented.
 
 ---
 
@@ -549,69 +549,111 @@ The dispatcher can see consist status — useful for knowing when a train is rea
 
 ## 9. RPi3 Provisioning
 
+**Status (2026-06-18): software provisioning complete.** Actual procedure deviated from the original plan below in several ways — see notes inline. Physical touch/display verification (§9.6/9.7) still pending hardware (ELECROW screen not yet attached; enclosure print in progress, see YardmasterTerminal CAD project).
+
 ### 9.1 OS Setup
 
-1. Flash **Raspberry Pi OS Desktop (64-bit, Bookworm)** to SD card using Raspberry Pi Imager
-2. In Imager advanced settings: enable SSH, hostname = `rpi3-yard`, create user, set home LAN WiFi
-3. Boot with HDMI connected (display power from USB or external supply per ELECROW spec)
-4. Verify SSH access from laptop: `ssh pi@rpi3-yard.local`
+1. Generate a dedicated SSH key pair on the dev machine: `ssh-keygen -t ed25519 -f ~/.ssh/id_rpi3_yard -C "rpi3-yard"`
+2. Flash Raspberry Pi OS Desktop (64-bit) to SD card using Raspberry Pi Imager. **Note:** the image that actually got used was current-as-of-2026-06-18, which is Debian 13 "trixie", not Bookworm — and it ships **labwc/Wayland** as the desktop session, not the older LXDE/X11 stack. §9.3 below reflects the labwc version.
+3. Imager advanced settings (hostname/user/SSH-key/WiFi) — **did not take effect on the actual flash** (settings dialog wasn't filled in before writing). Device booted as a vanilla image and went through the on-device first-run wizard instead, which created a user named `abyrne` (not `pi`) with a password and passwordless sudo. To match the documented kiosk convention, a `pi` user was created manually after the fact:
+   ```bash
+   # on the device, as abyrne (had passwordless sudo from the first-run wizard):
+   sudo useradd -m -s /bin/bash -G adm,dialout,cdrom,sudo,audio,video,plugdev,games,users,input,render,netdev,spi,i2c,gpio,lpadmin pi
+   sudo passwd -l pi   # no password login — key only
+   # install dev machine's id_rpi3_yard.pub into /home/pi/.ssh/authorized_keys
+   echo 'pi ALL=(ALL) NOPASSWD: ALL' | sudo tee /etc/sudoers.d/010_pi-nopasswd  # matches standard Imager-created-user behavior
+   sudo raspi-config nonint do_hostname rpi3-yard
+   ```
+   Password SSH was then disabled entirely (`/etc/ssh/sshd_config.d/10-key-only.conf`: `PasswordAuthentication no`), so the leftover `abyrne` account has no remote access — console-only if ever needed.
+4. Boot with HDMI connected (display power from USB or external supply per ELECROW spec)
+5. Add to `~/.ssh/config` on the dev machine:
+   ```
+   Host rpi3-yard
+       HostName 192.168.86.34
+       User pi
+       IdentitiesOnly yes
+       IdentityFile ~/.ssh/id_rpi3_yard
+   ```
+   (`.local` mDNS resolution isn't available from the dev machine's network setup — using the static home-LAN Ethernet IP instead. `rpi3-yard.local` may still work from other devices.)
+6. Verify SSH access from laptop: `ssh rpi3-yard` (no password prompt — key-only auth)
 
 ### 9.2 Package Installation
 
 ```bash
 sudo apt update && sudo apt upgrade -y
-sudo apt install -y chromium-browser unclutter
+sudo apt install -y chromium unclutter
 ```
+(Package is `chromium` on this Debian trixie image, not `chromium-browser`.)
 
-### 9.3 Kiosk Autostart
+### 9.3 Kiosk Autostart (labwc/Wayland)
 
-Enable auto-login to desktop: `sudo raspi-config → System Options → Boot / Auto Login → Desktop Autologin`
+Enable auto-login to desktop: `sudo raspi-config nonint do_boot_behaviour B4` (sets `autologin-user=pi` in lightdm, `autologin-session=rpd-labwc`).
 
-Create/edit `~/.config/lxsession/LXDE-pi/autostart`:
+Create `~/.config/labwc/autostart` (start from the system default at `/etc/xdg/labwc/autostart`, then append):
 ```
-@xset s off
-@xset -dpms
-@xset s noblank
-@unclutter -idle 0.5 -root
-@chromium-browser --kiosk --noerrdialogs --disable-infobars --no-first-run --disable-restore-session-state http://192.168.10.1:5000/yard
+/usr/bin/lwrespawn /usr/bin/pcmanfm-pi &
+/usr/bin/lwrespawn /usr/bin/wf-panel-pi &
+/usr/bin/kanshi &
+/usr/bin/lxsession-xdg-autostart
+
+unclutter -idle 0.5 -root &
+chromium --kiosk --noerrdialogs --disable-infobars --no-first-run --disable-restore-session-state --ozone-platform=wayland http://192.168.10.1:5000/yard &
 ```
+`--ozone-platform=wayland` is required for Chromium to run natively under labwc (without it, it falls back to XWayland, which is more likely to mishandle touch input). The old X11 `xset s off / -dpms / s noblank` screen-blanking commands have no labwc equivalent — `raspi-config nonint do_blanking 1` was run but didn't visibly change any config file under labwc on this image; screen-blanking behavior here is unverified and needs a physical-display check once the touchscreen is attached.
 
 ### 9.4 Add NYE_Layout WiFi
 
-```bash
-sudo nmcli device wifi connect "NYE_Layout" password "PASSWORD" ifname wlan0
-```
+**`NYE_Layout` is an open network (no password)** — see `CADlayout`/server `setup_ap.sh`: NetworkManager 1.52 on trixie has a WPA-PSK AP-mode regression, so the AP was deliberately set up open, with auth handled at the MQTT layer instead. The placeholder password in earlier drafts of this doc was never real.
 
-Keep home LAN WiFi config as fallback for maintenance. The RPi3 will connect to whichever is in range; `NYE_Layout` should be set as higher priority:
 ```bash
-sudo nmcli connection modify "NYE_Layout" connection.autoconnect-priority 10
+sudo nmcli connection add type wifi ifname wlan0 con-name NYE_Layout ssid NYE_Layout \
+    connection.autoconnect yes connection.autoconnect-priority 10
+sudo nmcli connection up NYE_Layout
 ```
+Do not set `wifi-sec.key-mgmt` — leaving the security section absent is what makes it a true open connection (`key-mgmt none` is actually WEP and will prompt for a key).
+
+Ethernet remains connected as the maintenance fallback (simpler than dual WiFi profiles, and already wired during provisioning).
 
 ### 9.5 DHCP Reservation (on RPi5)
 
-Add `rpi3-yard` MAC address to `/etc/dnsmasq.conf` on RPi5:
-```
-dhcp-host=AA:BB:CC:DD:EE:FF,rpi3-yard,192.168.10.20
-```
+The AP is served by **NetworkManager's built-in shared-mode dnsmasq**, not a standalone system `dnsmasq` service — the system `/etc/dnsmasq.conf` this section originally pointed at isn't what's actually serving DHCP on `NYE_Layout`. The reservation goes in NM's own drop-in instead:
 
-Restart dnsmasq: `sudo systemctl restart dnsmasq`
-
-### 9.6 Touch Input Verification
-
-After boot, with no keyboard attached:
 ```bash
-# From SSH:
-xinput list   # Should show ELECROW touchscreen as a pointer device
+# on rpi5-2:
+echo 'dhcp-host=b8:27:eb:01:ff:cb,rpi3-yard,192.168.10.20' | sudo tee -a /etc/NetworkManager/dnsmasq-shared.d/layout.conf
+sudo nmcli connection down NYE_Layout && sudo nmcli connection up NYE_Layout
 ```
+Confirmed: rpi3-yard gets `192.168.10.20` on `NYE_Layout` after reconnect, and it persists across a full reboot of rpi3-yard.
 
+### 9.6 Touch Input Verification — PENDING HARDWARE
+
+Not yet testable — ELECROW touchscreen isn't physically attached to this RPi3 yet (enclosure still being designed/test-printed). Once attached:
+```bash
+# From SSH, with the desktop session running:
+DISPLAY=:0 xinput list   # or wlr equivalent — confirm exact tool once a display is connected
+```
 If touch is not auto-detected, check `dmesg | grep -i touch` for USB HID registration.
 
 ### 9.7 Verify Kiosk
 
-1. Reboot RPi3 with no keyboard or mouse attached
-2. Desktop should auto-login
-3. Chromium should launch full-screen at `/yard`
-4. Touch navigation should work
+Confirmed working **headless** (no HDMI/touchscreen attached) on 2026-06-18: after a full reboot, lightdm auto-logged in as `pi`, labwc started, and Chromium launched in kiosk mode pointed at `http://192.168.10.1:5000/yard` — all automatically, no console interaction. Visual/touch confirmation with the real screen attached is the remaining open item (see §9.6).
+
+### 9.8 Kiosk debugging session (2026-06-18, with a real HDMI monitor attached)
+
+With an actual monitor on HDMI (not the ELECROW yet, just for diagnostics), the kiosk showed a **blank white screen** instead of the dashboard. Diagnosed remotely via `grim` (Wayland screenshot tool, already installed) over SSH — `WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/1001 grim /tmp/shot.png` then `scp` back to view. Found two real bugs, both now fixed in `~/.config/labwc/autostart` (and reflected in the autostart block in §9.3 above):
+
+1. **Chromium's GPU process was crash-looping.** `/tmp/chromium*.log` showed repeated `EGL_BAD_ATTRIBUTE` / `eglCreateContext ES 3.0 failed` / `Exiting GPU process due to errors during initialization` — the RPi3's GPU/Mesa driver can't satisfy the GLES3 context Chromium auto-requests (`--use-angle=gles` gets added automatically based on hardware detection; nothing under our control adds it). Compositor never painted anything as a result. **Fix:** added `--disable-gpu --disable-gpu-compositing` — forces software rendering via Skia/CPU, which is more than adequate for this dashboard (no 3D/video content).
+2. **A password prompt flashed before the white screen.** Almost certainly Chromium trying to unlock the GNOME keyring for its built-in password manager — impossible to succeed since `pi`'s password is locked (`passwd -l`, intentional for key-only SSH). **Fix:** added `--password-store=basic`, which makes Chromium use its own internal (non-OS-keyring) credential store instead, skipping the unlock prompt entirely.
+
+After both fixes, confirmed via remote screenshot: full WP Yardmaster dashboard renders correctly (live clock, departing trains, track board, C&O footer) — verified both immediately after a manual relaunch and again after a full `sudo reboot`.
+
+**Debugging gotcha hit along the way:** `pkill -9 -f /usr/lib/chromium/chromium` killed the *invoking shell itself*, not just the target Chromium process — `pkill -f` matches against the full command line of every process, including the `bash -c "..."` process running the pkill command, which trivially contains the search pattern as a literal substring of its own argv. Use `killall chromium` (matches by `comm` name only) instead when killing by name over SSH.
+
+### 9.9 Power supply — OPEN ISSUE, not yet resolved (2026-06-18)
+
+`brcmfmac` (onboard WiFi) intermittently fails firmware load at boot (`brcmf_sdio_verifymemory: Downloaded RAM image is corrupted` → `dongle image file download failed` → `wlan0` never appears). Root-caused to **under-voltage**: `dmesg` showed `hwmon1: Undervoltage detected!`, and `vcgencmd get_throttled` returned `0x50005` (decode: bit0 under-voltage *currently* detected, bit2 *currently* throttled, bit16/18 = both have occurred since boot) — `vcgencmd measure_volts core` was a normal 1.2000V, confirming the SoC itself is fine and the problem is the 5V input rail sagging under load.
+
+Owner swapped the power supply once already (2026-06-18) — kiosk came up and was visually confirmed working after the swap, but **the under-voltage condition was still present in `vcgencmd get_throttled` immediately after that swap too** (not yet re-verified after the owner's planned follow-up investigation). Likely culprits, in order of likelihood: cheap/long/thin USB cable (voltage drop under load, even with a good supply), supply rated below the RPi3 B+'s 5.1V/2.5A requirement, or a shared/overloaded USB hub. **Next session: re-run `vcgencmd get_throttled` after the owner's fix and confirm `0x0` (no under-voltage, ever) before considering this closed** — intermittent under-voltage can cause silent SD card corruption and random crashes even when the screen "looks fine" momentarily.
 
 ---
 
