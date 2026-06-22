@@ -1,0 +1,21 @@
+{
+  "version": "1.0",
+  "engines": [
+    {"road_number": "10", "road_name": "NY&E", "type": "0-6-0", "max_cars": 6, "dcc_addr": 10, "sound": false, "road_eligible": false, "notes": "Yard/mine switcher only"},
+    {"road_number": "11", "road_name": "NY&E", "type": "0-6-0", "max_cars": 6, "dcc_addr": 11, "sound": false, "road_eligible": false, "notes": "Yard/mine switcher only"},
+    {"road_number": "12", "road_name": "NY&E", "type": "0-6-0", "max_cars": 6, "dcc_addr": 12, "sound": false, "road_eligible": false, "notes": "Yard/mine switcher only"},
+    {"road_number": "14", "road_name": "NY&E", "type": "0-6-0", "max_cars": 6, "dcc_addr": 14, "sound": false, "road_eligible": false, "notes": "Yard/mine switcher only"},
+    {"road_number": "21", "road_name": "NY&E", "type": "4-4-0", "max_cars": 6, "dcc_addr": 21, "sound": true, "road_eligible": true},
+    {"road_number": "22", "road_name": "NY&E", "type": "4-4-0", "max_cars": 6, "dcc_addr": 22, "sound": true, "road_eligible": true},
+    {"road_number": "30", "road_name": "NY&E", "type": "2-6-0", "max_cars": 6, "dcc_addr": 30, "sound": false, "road_eligible": true},
+    {"road_number": "46", "road_name": "NY&E", "type": "4-6-0", "max_cars": 6, "dcc_addr": 46, "sound": false, "road_eligible": true}
+  ],
+  "cabooses": [
+    {"road_number": "10", "road_name": "NY&E"},
+    {"road_number": "11", "road_name": "NY&E"},
+    {"road_number": "12", "road_name": "NY&E"},
+    {"road_number": "13", "road_name": "NY&E"},
+    {"road_number": "14", "road_name": "NY&E"},
+    {"road_number": "15", "road_name": "NY&E"}
+  ]
+}

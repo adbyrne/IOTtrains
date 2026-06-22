@@ -2,7 +2,7 @@
 
 **Version:** 1.5  
 **Date:** 2026-06-18  
-**Status:** Session 2.0a + 2.0b implemented and deployed (software). RPi3 kiosk provisioning (§9) software-complete and visually confirmed rendering correctly on an HDMI monitor. **Open: power supply under-voltage (§9.9) not yet resolved** — must be confirmed clean before treating the device as reliable. Touch verification still pending (ELECROW touchscreen not yet attached). Engine/caboose roster (§14) designed, not yet implemented.
+**Status:** Session 2.0a + 2.0b implemented and deployed (software). RPi3 kiosk provisioning (§9) software-complete and visually confirmed rendering correctly on an HDMI monitor. **Open: power supply under-voltage (§9.9) not yet resolved** — must be confirmed clean before treating the device as reliable. Touch verification still pending (ELECROW touchscreen not yet attached). Engine/caboose roster (§14) **implemented 2026-06-22**.
 
 ---
 

@@ -41,6 +41,7 @@ let ws = null;
 let reconnectTimer = null;
 let consists = {};            // train/engine number -> consist dict
 let yardTracks = [];
+let roster = { engines: [], cabooses: [] };
 let yardNotifications = [];
 let coeTrains = [];
 let yardDepartures = [];
@@ -80,6 +81,7 @@ function connect() {
 function handleInitialState(event) {
     consists         = event.consists || {};
     yardTracks       = event.yard_tracks || [];
+    roster           = event.roster || { engines: [], cabooses: [] };
     yardNotifications = event.yard_notifications || [];
     coeTrains        = event.coe_trains || [];
     yardDepartures   = event.yard_departures || [];
@@ -92,6 +94,12 @@ function handleInitialState(event) {
     buildTrackSelect(document.getElementById('cs-track-select'), TRACK_BOARD_EXCLUDE_FN);
     buildTrackSelect(document.getElementById('ce-track-select'),
         TRACK_BOARD_EXCLUDE_FN.concat(['interchange_east', 'interchange_west', 'co_siding']));
+
+    const roadEngines = roster.engines.filter(e => e.road_eligible !== false);
+    buildRosterSelect(document.getElementById('cs-engine-select'), roadEngines);
+    buildRosterSelect(document.getElementById('cs-caboose-select'), roster.cabooses);
+    buildRosterSelect(document.getElementById('ce-engine-select'), roadEngines);
+    buildRosterSelect(document.getElementById('ce-caboose-select'), roster.cabooses);
 
     updateClock(event.clock);
     renderDeparting();
@@ -332,6 +340,41 @@ function setSelectedTrack(containerEl, trackId) {
         b.classList.toggle('active', b.dataset.trackId === trackId));
 }
 
+// ── Roster select widget (Engine / Caboose) ─────────────────────────────────
+// Same tap-to-select pattern as the Track selector above, built from
+// roster.json instead of yard.json. Engine grids are pre-filtered by the
+// caller to road_eligible entries; caboose grids show the full roster.
+
+function buildRosterSelect(containerEl, items) {
+    if (containerEl.dataset.built === '1') return;
+    containerEl.dataset.built = '1';
+    for (const item of items) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn track-select-btn';
+        btn.textContent = item.road_number;
+        btn.title = item.type ? `${item.road_name} ${item.road_number} (${item.type})` : `${item.road_name} ${item.road_number}`;
+        btn.dataset.rosterNumber = item.road_number;
+        containerEl.appendChild(btn);
+    }
+    containerEl.addEventListener('click', e => {
+        const btn = e.target.closest('.track-select-btn');
+        if (!btn) return;
+        containerEl.querySelectorAll('.track-select-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+    });
+}
+
+function getSelectedRoster(containerEl) {
+    const active = containerEl.querySelector('.track-select-btn.active');
+    return active ? active.dataset.rosterNumber : null;
+}
+
+function setSelectedRoster(containerEl, rosterNumber) {
+    containerEl.querySelectorAll('.track-select-btn').forEach(b =>
+        b.classList.toggle('active', b.dataset.rosterNumber === rosterNumber));
+}
+
 // ── Numpad ───────────────────────────────────────────────────────────────────
 
 function buildNumpadGrid(gridEl) {
@@ -378,8 +421,8 @@ function openScheduledModal(train) {
     csTrain = train;
     const existing = consists[train] || {};
     document.getElementById('cs-title').textContent = `Build Consist — ${trainIdLabel(train, 'N', false)}`;
-    document.getElementById('cs-engine').value   = existing.engine || '';
-    document.getElementById('cs-caboose').value  = existing.caboose || '';
+    setSelectedRoster(document.getElementById('cs-engine-select'), existing.engine || null);
+    setSelectedRoster(document.getElementById('cs-caboose-select'), existing.caboose || null);
     document.getElementById('cs-loads').value    = existing.cars_loaded != null ? existing.cars_loaded : '';
     document.getElementById('cs-empties').value  = existing.cars_empty != null ? existing.cars_empty : '';
     setSelectedTrack(document.getElementById('cs-track-select'), existing.track_id);
@@ -398,8 +441,8 @@ async function submitScheduledConsist(targetState) {
         train: csTrain,
         state: targetState,
         direction: 'N',   // WP-departing scheduled trains are always northbound
-        engine: document.getElementById('cs-engine').value.trim() || null,
-        caboose: document.getElementById('cs-caboose').value.trim() || null,
+        engine: getSelectedRoster(document.getElementById('cs-engine-select')),
+        caboose: getSelectedRoster(document.getElementById('cs-caboose-select')),
         cars_loaded: parseIntOrNull(document.getElementById('cs-loads').value),
         cars_empty: parseIntOrNull(document.getElementById('cs-empties').value),
         track_id: getSelectedTrack(document.getElementById('cs-track-select')),
@@ -429,8 +472,8 @@ function openExtraModal(train) {
     const existing = consists[train] || { train, extra: true, direction: 'N' };
     ceDirection = existing.direction || 'N';
     document.getElementById('ce-subtitle').textContent = occupantTrainId(existing);
-    document.getElementById('ce-engine').value  = existing.engine || '';
-    document.getElementById('ce-caboose').value = existing.caboose || '';
+    setSelectedRoster(document.getElementById('ce-engine-select'), existing.engine || null);
+    setSelectedRoster(document.getElementById('ce-caboose-select'), existing.caboose || null);
     document.getElementById('ce-loads').value   = existing.cars_loaded != null ? existing.cars_loaded : '';
     document.getElementById('ce-empties').value = existing.cars_empty != null ? existing.cars_empty : '';
     setSelectedTrack(document.getElementById('ce-track-select'), existing.track_id);
@@ -450,8 +493,8 @@ async function submitExtraConsist(targetState) {
         state: targetState,
         extra: true,
         direction: ceDirection,
-        engine: document.getElementById('ce-engine').value.trim() || null,
-        caboose: document.getElementById('ce-caboose').value.trim() || null,
+        engine: getSelectedRoster(document.getElementById('ce-engine-select')),
+        caboose: getSelectedRoster(document.getElementById('ce-caboose-select')),
         cars_loaded: parseIntOrNull(document.getElementById('ce-loads').value),
         cars_empty: parseIntOrNull(document.getElementById('ce-empties').value),
         track_id: getSelectedTrack(document.getElementById('ce-track-select')),

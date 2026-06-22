@@ -50,6 +50,7 @@ TO_TYPES_FILE = BASE_DIR / "data" / "to_types.json"
 ACTIVE_FORMS_FILE  = BASE_DIR / "data" / "active_forms.json"
 LAYOUT_RULES_FILE  = BASE_DIR / "data" / "layout_rules.json"
 YARD_FILE = BASE_DIR / "data" / "yard.json"
+ROSTER_FILE = BASE_DIR / "data" / "roster.json"
 TEMPLATE_DIR = Path(__file__).parent / "templates"
 STATIC_DIR = Path(__file__).parent / "static"
 SUBDIVISION = "NLS"
@@ -163,6 +164,7 @@ def build_initial_state() -> dict:
         "extra_times": timetable.inter_station_times(SUBDIVISION, STATION_IDS),
         "consists": state.consists,
         "yard_tracks": state.yard_tracks,
+        "roster": state.roster,
         "yard_notifications": state.yard_notifications,
         "coe_trains": timetable.coe_schedule(state.clock.get("day") or 1),
         "yard_departures": build_yard_departures(state.clock.get("day") or 1),
@@ -225,6 +227,14 @@ async def lifespan(app: FastAPI):
         state.yard_tracks = yard_data.get("tracks", [])
     except (FileNotFoundError, json.JSONDecodeError) as e:
         log.error("yard.json error: %s", e)
+    try:
+        roster_data = json.loads(ROSTER_FILE.read_text())
+        state.roster = {
+            "engines": roster_data.get("engines", []),
+            "cabooses": roster_data.get("cabooses", []),
+        }
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        log.error("roster.json error: %s", e)
     state.block_signals = {sid: "lowered" for sid in BLOCK_SIGNAL_STATIONS}
     mqtt_client = MQTTClient(config, state, build_next_trains, lambda: layout_rules)
     mqtt_client.start(asyncio.get_running_loop())

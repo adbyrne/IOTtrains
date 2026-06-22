@@ -246,6 +246,23 @@ class TestYardInitialState:
         assert "CAB" in track_ids
         assert "YL" in track_ids
 
+    def test_roster_loads_from_file(self, client):
+        with client.websocket_connect("/ws") as ws:
+            data = ws.receive_json()
+        engine_numbers = {e["road_number"] for e in data["roster"]["engines"]}
+        caboose_numbers = {c["road_number"] for c in data["roster"]["cabooses"]}
+        assert "21" in engine_numbers
+        assert "10" in caboose_numbers
+        switcher = next(e for e in data["roster"]["engines"] if e["road_number"] == "10")
+        assert switcher["road_eligible"] is False
+
+    def test_yard_initial_state_includes_roster(self, client):
+        with client.websocket_connect("/ws") as ws:
+            data = ws.receive_json()
+        assert "roster" in data
+        assert "engines" in data["roster"]
+        assert "cabooses" in data["roster"]
+
     def test_coe_trains_have_wp_times(self, client):
         with client.websocket_connect("/ws") as ws:
             data = ws.receive_json()
