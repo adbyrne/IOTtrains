@@ -1,8 +1,8 @@
 # NY&E WP Yardmaster Terminal — Design Document
 
-**Version:** 1.6  
+**Version:** 1.7  
 **Date:** 2026-06-22  
-**Status:** Session 2.0a + 2.0b implemented and deployed (software). RPi3 kiosk provisioning (§9) software-complete and visually confirmed rendering correctly on an HDMI monitor. **Open: power supply under-voltage (§9.9) not yet resolved** — must be confirmed clean before treating the device as reliable. Touch verification still pending (ELECROW touchscreen not yet attached). Engine/caboose roster (§14) **implemented 2026-06-22**. Equipment status tracking + Hostler role (§15) **designed, not yet implemented**.
+**Status:** Session 2.0a + 2.0b implemented and deployed (software). RPi3 kiosk provisioning (§9) software-complete and visually confirmed rendering correctly on an HDMI monitor. **Open: power supply under-voltage (§9.9) not yet resolved** — must be confirmed clean before treating the device as reliable. Touch verification still pending (ELECROW touchscreen not yet attached). Engine/caboose roster (§14) **implemented 2026-06-22**. Equipment status tracking + Hostler role (§15) **designed, not yet implemented** — firmware renamed Hostler CYD → **Yard CYD** (shared device, job-select screen; Ice House is a second yard job identified for it, deferred to its own design session).
 
 ---
 
@@ -868,24 +868,26 @@ Both also have an `out_of_service` status, orthogonal to the cycle above (§15.6
 ### 15.3 New API endpoints
 
 - `POST /api/yard/caboose_paperwork` — body `{"road_number": "10"}`. YM-only action. Sets that caboose to `available`. 404 if the caboose isn't currently `awaiting_paperwork`.
-- `POST /api/hostler/roundhouse` — body `{"road_number": "21"}`. Sets that engine to `available`. 404 if the engine isn't currently `being_serviced`. (Source of the POST is the new Hostler CYD firmware, §15.5 — but the endpoint itself doesn't care who calls it, so it's also reachable from a browser for testing before the firmware exists.)
+- `POST /api/hostler/roundhouse` — body `{"road_number": "21"}`. Sets that engine to `available`. 404 if the engine isn't currently `being_serviced`. (Source of the POST is the new Yard CYD's Hostler job, §15.5 — but the endpoint itself doesn't care who calls it, so it's also reachable from a browser for testing before the firmware exists.)
 
 ### 15.4 UI changes — Yardmaster web terminal
 
 - **Roster selector grids (§14.3) now filter on `status === "available"`**, not just `road_eligible`. This is the "hidden, not grayed-out" behavior you asked for — an engine on helper duty or flagged `out_of_service` simply doesn't appear as a choice. (Helper-duty locking itself is deferred — see §15.7 — but the status field and the filter are general enough to support it once that job is designed: anything that sets an engine's status to `out` makes it disappear here, regardless of what put it there.)
 - **Arriving Trains panel** (`renderArriving()` in `yard.js`): once a tile's train has actually arrived (i.e. its consist's engine/caboose are in `awaiting_paperwork`/`being_serviced`, not just notified), show a **"Paperwork Delivered"** button on that tile. Tapping it calls `/api/yard/caboose_paperwork` for that consist's caboose. Button disappears once the caboose is `available` (or if the consist had no caboose, e.g. a light-engine move).
 
-### 15.5 New firmware — Hostler CYD (third firmware project)
+### 15.5 New firmware — Yard CYD (third firmware project)
 
-You're buying a CYD specifically for this role, which means it needs its own ESP32 firmware — CYDs run LVGL + MQTT directly, they don't render a web page, so this can't just be a browser pointed at the yard terminal. Scoped as a new PlatformIO project alongside `Station_OS/` and `TO_Signal/` (`IOTtrains/Hostler/`), reusing the same stack (`lvgl`, `AsyncMqttClient`, `ArduinoJson`) minus the PCA9685 servo dependency — this device has no signal arm to drive.
+Renamed from "Hostler CYD" to **Yard CYD** (2026-06-22) — it's one shared physical unit covering whichever yard-side job needs it at the moment, not a device dedicated to Hostler alone. Hostler is the first job it supports; **Ice House** (cleaning / pre-icing / post-icing — time-delayed, not strictly ordered tasks) is a second yard job already identified for it, but its task model needs its own research/design session before it's built — out of scope here. CYDs run LVGL + MQTT directly, not a browser, so this needs real ESP32 firmware — scoped as a new PlatformIO project alongside `Station_OS/` and `TO_Signal/` (`IOTtrains/YardCYD/`), reusing the same stack (`lvgl`, `AsyncMqttClient`, `ArduinoJson`) minus the PCA9685 servo dependency.
 
-Minimal screen design (single screen, no state machine needed like Station_OS's multi-screen flow):
+**Architecture for job-sharing:** a top-level job-select screen (Hostler / Ice House / future jobs), matching Station_OS's existing pattern of a default/home screen the unit returns to. Only the Hostler job is designed/built now; Ice House gets a placeholder entry until its own design lands.
+
+**Hostler job screen** (the only one specified so far):
 - Subscribes to `trains/roster/engine/+/status`, retained — filters client-side to `being_serviced` entries.
 - Shows a tap-to-select list of engines currently awaiting roundhouse (road number, mirrors the Track/Roster button look-and-feel already established).
-- A single confirm button publishes `trains/roster/engine/{road_number}/status` with `status: "available"` directly from the firmware (retained), the same pattern `TO_Signal` uses for its own state publishes — no HTTP round-trip needed, though `POST /api/hostler/roundhouse` (§15.3) stays available as a manual fallback for testing without the physical unit in hand.
+- A single confirm button publishes `trains/roster/engine/{road_number}/status` with `status: "available"` directly from the firmware (retained) — same pattern as the engine/caboose status publishes elsewhere in this design (§15.2), and the same general approach `TO_Signal` already uses for its own state publishes: the device publishes its own status directly over MQTT, no HTTP round-trip needed. `POST /api/hostler/roundhouse` (§15.3) stays available as a manual fallback for testing without the physical unit in hand.
 - Empty state ("No engines awaiting service") when nothing is pending.
 
-This is a separate implementation track from the RR_Server work above — needs the physical CYD in hand for bench testing, the same way Station_OS's early commits show "hardware tested" only once a unit was wired up. RR_Server-side (§15.1–15.4) can be built and tested headless now; this firmware is scoped here but built once hardware arrives.
+This is a separate implementation track from the RR_Server work above — needs the physical CYD in hand for bench testing, the same way Station_OS's early commits show "hardware tested" only once a unit was wired up. RR_Server-side (§15.1–15.4) can be built and tested headless now; this firmware (Hostler job only) is scoped here but built once hardware arrives. Ice House job: separate future design session, then added to this same firmware as a second job on the select screen.
 
 ### 15.6 UI changes — Owner `/manage` page
 
