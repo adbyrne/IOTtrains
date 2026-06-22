@@ -1,8 +1,8 @@
 # NY&E WP Yardmaster Terminal — Design Document
 
-**Version:** 1.5  
-**Date:** 2026-06-18  
-**Status:** Session 2.0a + 2.0b implemented and deployed (software). RPi3 kiosk provisioning (§9) software-complete and visually confirmed rendering correctly on an HDMI monitor. **Open: power supply under-voltage (§9.9) not yet resolved** — must be confirmed clean before treating the device as reliable. Touch verification still pending (ELECROW touchscreen not yet attached). Engine/caboose roster (§14) **implemented 2026-06-22**.
+**Version:** 1.6  
+**Date:** 2026-06-22  
+**Status:** Session 2.0a + 2.0b implemented and deployed (software). RPi3 kiosk provisioning (§9) software-complete and visually confirmed rendering correctly on an HDMI monitor. **Open: power supply under-voltage (§9.9) not yet resolved** — must be confirmed clean before treating the device as reliable. Touch verification still pending (ELECROW touchscreen not yet attached). Engine/caboose roster (§14) **implemented 2026-06-22**. Equipment status tracking + Hostler role (§15) **designed, not yet implemented**.
 
 ---
 
@@ -830,3 +830,82 @@ Replaces the readonly numpad-target text inputs (`cs-engine`, `cs-caboose` in th
 - Bad-order flagging/filtering of roster equipment — separate "Bad order Yardmaster feature" session (already queued, needs its own design).
 - Editing the roster from a UI — owner edits `roster.json` directly, same as `yard.json`.
 - DCC address use in the consist flow — `dcc_addr` is carried in the data for future use (e.g. a JMRI throttle integration) but the consist modal only needs `road_number` today.
+
+---
+
+## 15. Equipment Status Tracking & Hostler Role (Design — 2026-06-22)
+
+**Motivation:** §14 makes engine/caboose selection tap-to-select, but every roster entry is always selectable — nothing stops two consists from both claiming Engine 21. In reality, an engine or caboose that's out on the road isn't available again until it physically comes back to the yard and goes through a return process: the caboose gets uncoupled and the conductor turns in the paperwork (Car Cards & Waybills); the engine goes to the roundhouse for servicing. This section adds a live status to each roster entry, tied to that real-world cycle, and a new yard job — **Hostler** — who handles the engine side of it.
+
+### 15.1 Status state machine
+
+Each roster entry (engine or caboose) carries a live `status`, separate from the static `road_eligible`/`type`/etc. fields in `roster.json`. The cycle differs slightly by equipment type because the two things are released by different people:
+
+**Engine:**
+```
+available ──(assigned to a consist)──▶ out ──(crew OS report, arrival at WP)──▶ being_serviced ──(hostler: "in roundhouse")──▶ available
+```
+
+**Caboose:**
+```
+available ──(assigned to a consist)──▶ out ──(crew OS report, arrival at WP)──▶ awaiting_paperwork ──(YM: "Paperwork Delivered")──▶ available
+```
+
+Both also have an `out_of_service` status, orthogonal to the cycle above (§15.6).
+
+**Lock trigger:** an engine/caboose moves to `out` the moment it's tapped into *any* open consist (`assembling` / `car_block_ready` / `ready` — not just `ready`), so two consists can never claim the same equipment while both are still being built.
+
+**Return trigger:** the existing OS report handler (`mqtt_client.py`, `trains/os/+`) already special-cases `direction == "S"` reports — today only at XP, to fire the optional auto-Notify-YM. This design adds a second case: an OS report with `station_id == "WP"` and `direction == "S"` is the crew physically registering arrival in the yard. At that point the server looks up `state.consists[entry["train"]]` for the engine/caboose road numbers on that consist and moves the engine to `being_serviced` and the caboose to `awaiting_paperwork`. (XP-southbound stays exactly as it is today — that's just the early heads-up, not the equipment-return event.)
+
+### 15.2 Data model / server changes
+
+- `AppState` gains `equipment_status: dict` — keyed by road number (engines and cabooses share one namespace's worth of lookups since road numbers aren't shared between the two lists), value `{"status": "available"|"out"|"being_serviced"|"awaiting_paperwork"|"out_of_service", "rr_time": str|None, "day": int|None}`.
+- Initialized to `available` for every entry in `roster.json` at startup (`lifespan()`, same place `ROSTER_FILE` is loaded).
+- **MQTT, retained** (matches the existing `publish_yard_consist`/`publish_signal_arm` pattern): `trains/roster/engine/{road_number}/status` and `trains/roster/caboose/{road_number}/status`, payload `{"status": ..., "rr_time": ..., "day": ...}`. Retained so status survives an `rr-dispatcher` restart, consistent with the project's "MQTT is the state store" principle (`RR_Server/README.md`).
+- New `MQTTClient.publish_roster_status(kind, road_number, payload)` helper, called from three places in `app.py`: the consist-lock path (`/api/yard/consist`, on first assignment), the OS-report return path (`mqtt_client.py`'s `trains/os/+` handler), and the two new release endpoints below.
+- `build_initial_state()` gains `"equipment_status": state.equipment_status`.
+
+### 15.3 New API endpoints
+
+- `POST /api/yard/caboose_paperwork` — body `{"road_number": "10"}`. YM-only action. Sets that caboose to `available`. 404 if the caboose isn't currently `awaiting_paperwork`.
+- `POST /api/hostler/roundhouse` — body `{"road_number": "21"}`. Sets that engine to `available`. 404 if the engine isn't currently `being_serviced`. (Source of the POST is the new Hostler CYD firmware, §15.5 — but the endpoint itself doesn't care who calls it, so it's also reachable from a browser for testing before the firmware exists.)
+
+### 15.4 UI changes — Yardmaster web terminal
+
+- **Roster selector grids (§14.3) now filter on `status === "available"`**, not just `road_eligible`. This is the "hidden, not grayed-out" behavior you asked for — an engine on helper duty or flagged `out_of_service` simply doesn't appear as a choice. (Helper-duty locking itself is deferred — see §15.7 — but the status field and the filter are general enough to support it once that job is designed: anything that sets an engine's status to `out` makes it disappear here, regardless of what put it there.)
+- **Arriving Trains panel** (`renderArriving()` in `yard.js`): once a tile's train has actually arrived (i.e. its consist's engine/caboose are in `awaiting_paperwork`/`being_serviced`, not just notified), show a **"Paperwork Delivered"** button on that tile. Tapping it calls `/api/yard/caboose_paperwork` for that consist's caboose. Button disappears once the caboose is `available` (or if the consist had no caboose, e.g. a light-engine move).
+
+### 15.5 New firmware — Hostler CYD (third firmware project)
+
+You're buying a CYD specifically for this role, which means it needs its own ESP32 firmware — CYDs run LVGL + MQTT directly, they don't render a web page, so this can't just be a browser pointed at the yard terminal. Scoped as a new PlatformIO project alongside `Station_OS/` and `TO_Signal/` (`IOTtrains/Hostler/`), reusing the same stack (`lvgl`, `AsyncMqttClient`, `ArduinoJson`) minus the PCA9685 servo dependency — this device has no signal arm to drive.
+
+Minimal screen design (single screen, no state machine needed like Station_OS's multi-screen flow):
+- Subscribes to `trains/roster/engine/+/status`, retained — filters client-side to `being_serviced` entries.
+- Shows a tap-to-select list of engines currently awaiting roundhouse (road number, mirrors the Track/Roster button look-and-feel already established).
+- A single confirm button publishes `trains/roster/engine/{road_number}/status` with `status: "available"` directly from the firmware (retained), the same pattern `TO_Signal` uses for its own state publishes — no HTTP round-trip needed, though `POST /api/hostler/roundhouse` (§15.3) stays available as a manual fallback for testing without the physical unit in hand.
+- Empty state ("No engines awaiting service") when nothing is pending.
+
+This is a separate implementation track from the RR_Server work above — needs the physical CYD in hand for bench testing, the same way Station_OS's early commits show "hardware tested" only once a unit was wired up. RR_Server-side (§15.1–15.4) can be built and tested headless now; this firmware is scoped here but built once hardware arrives.
+
+### 15.6 UI changes — Owner `/manage` page
+
+New "Equipment Status" section: a table of every roster entry (engine/caboose, road number, current status) with an **owner-only** out-of-service toggle. Setting `out_of_service` removes the entry from the YM's selector grids immediately (same filter as §15.4); clearing it returns the entry to whatever the state machine says it should be (`available` unless it happens to still be mid-cycle, which shouldn't normally overlap with a repair flag in practice). No new MQTT topic needed beyond the one in §15.2 — `/manage` calls the same publish path with `status: "out_of_service"`.
+
+### 15.7 Tests to add (`tests/test_yard.py`)
+
+| Test | Description |
+|------|--------------|
+| `test_equipment_locks_on_consist_assignment` | Assigning an engine/caboose to a consist (any open state) sets `equipment_status` to `out` |
+| `test_locked_equipment_excluded_from_available` | An `out` engine/caboose doesn't appear in a query of available roster entries |
+| `test_wp_southbound_os_report_returns_equipment` | OS report with `station_id="WP"`, `direction="S"` moves that consist's engine to `being_serviced` and caboose to `awaiting_paperwork` |
+| `test_xp_southbound_does_not_return_equipment` | Confirms the existing XP auto-notify path is unchanged — only WP triggers the return |
+| `test_caboose_paperwork_endpoint` | `POST /api/yard/caboose_paperwork` moves an `awaiting_paperwork` caboose to `available`; 404 if not in that status |
+| `test_hostler_roundhouse_endpoint` | `POST /api/hostler/roundhouse` moves a `being_serviced` engine to `available`; 404 if not in that status |
+| `test_out_of_service_excludes_from_selector` | An `out_of_service` entry is excluded regardless of cycle position |
+
+### 15.8 Out of scope for this design
+
+- **Helper-duty locking** — engines assigned to helper service (BB–JC) should also lock out of the road-train selector, but helper duty doesn't have a digital workflow yet at all (it's one of the new crew jobs still being documented). The status field/filter here is general-purpose enough to support it later; wiring an actual trigger is deferred until helper duty itself is designed.
+- **Mine crew / ice house switching jobs** locking yard-switcher engines (10/11/12/14) — those engines are already excluded from the road-eligible grid (§14.3) and aren't part of the digital consist system at all today, same as before.
+- Car-level tracking through the return cycle — only engine/caboose status is tracked; individual freight cars stay exactly as paper-tracked as they are today.
+- A management UI for editing `roster.json` itself (adding/removing equipment) — still an owner file edit + restart, same as §14.5.
