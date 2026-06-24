@@ -9,31 +9,17 @@
     "Rendering notes are in the 'notes' field of each type.",
     "default_form is set by the management module. The dispatcher UI stamps every TO with this value; no per-TO selection."
   ],
-  "default_form": "19",
+  "default_form": "31",
   "to_types": {
     "meet": {
-      "label": "Meet Order",
-      "description": "Direct Train A to take a siding and wait for Train B",
+      "label": "Meet Order (Form A)",
+      "description": "Fix a meeting point for two opposing trains (Standard Code Form A). The order establishes where; timetable rights determine who takes the siding.",
       "fields": [
         {
           "id": "train_a",
-          "label": "Train A (takes siding)",
+          "label": "Train A",
           "type": "train_number",
-          "required": true,
-          "help": "Scheduled train number of the inferior train"
-        },
-        {
-          "id": "engine_a",
-          "label": "Engine A",
-          "type": "engine_number",
           "required": true
-        },
-        {
-          "id": "direction_a",
-          "label": "Direction of Train A",
-          "type": "direction",
-          "required": true,
-          "help": "Used to verify superiority \u2014 does not appear in order text"
         },
         {
           "id": "train_b_is_extra",
@@ -50,16 +36,6 @@
           "help": "Train number for scheduled trains; engine number for extras"
         },
         {
-          "id": "engine_b",
-          "label": "Engine B",
-          "type": "engine_number",
-          "required": false,
-          "hidden_when": {
-            "train_b_is_extra": true
-          },
-          "help": "Required for scheduled trains"
-        },
-        {
           "id": "direction_b",
           "label": "Direction of Train B",
           "type": "direction",
@@ -72,11 +48,11 @@
           "required": true
         }
       ],
-      "template": "No. {train_a} Eng {engine_a} take siding at {station_name} and wait for {train_b_ref}.",
+      "template": "No. {train_a} will meet {train_b_ref} at {station_name}.",
       "template_vars": {
         "station_name": "station name looked up from station field",
         "direction_b_word": "North or South derived from direction_b",
-        "train_b_ref": "if train_b_is_extra: 'Extra {train_b} {direction_b_word}' \u2014 else: 'No. {train_b} Eng {engine_b}'"
+        "train_b_ref": "if train_b_is_extra: 'Extra {train_b} {direction_b_word}' \u2014 else: 'No. {train_b}'"
       }
     },
     "wait": {
