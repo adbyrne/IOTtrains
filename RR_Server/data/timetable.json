@@ -350,8 +350,7 @@
             {
               "location": "XP",
               "arrive": "07:19",
-              "depart": "07:29",
-              "note": "Wait for No. 52"
+              "depart": "07:29"
             },
             {
               "location": "BB",
@@ -460,7 +459,8 @@
             {
               "location": "JC",
               "arrive": "04:31",
-              "depart": "04:41"
+              "depart": "04:41",
+              "note": "Wait for No. 22"
             },
             {
               "location": "MC",
@@ -830,8 +830,7 @@
             {
               "location": "XP",
               "arrive": "10:09",
-              "depart": "10:19",
-              "note": "Wait for No. 1"
+              "depart": "10:19"
             },
             {
               "location": "WP",
@@ -926,17 +925,17 @@
             {
               "location": "BB",
               "arrive": "07:27",
-              "depart": "07:37"
-            },
-            {
-              "location": "XP",
-              "arrive": "07:41",
-              "depart": "08:10",
+              "depart": "07:43",
               "note": "Wait for No. 1"
             },
             {
+              "location": "XP",
+              "arrive": "07:47",
+              "depart": "08:16"
+            },
+            {
               "location": "WP_YARD",
-              "arrive": "08:20"
+              "arrive": "08:26"
             }
           ]
         },
@@ -977,8 +976,7 @@
             {
               "location": "BB",
               "arrive": "04:45",
-              "depart": "04:55",
-              "note": "Wait for No. 11"
+              "depart": "04:55"
             },
             {
               "location": "XP",
@@ -1200,24 +1198,24 @@
           "schedule": [
             {
               "location": "MC",
-              "depart": "13:45",
+              "depart": "14:04",
               "note": "Pickup QM2 spur"
             },
             {
               "location": "JC",
-              "depart": "14:07"
+              "depart": "14:26"
             },
             {
               "location": "BB",
-              "depart": "14:33"
+              "depart": "14:52"
             },
             {
               "location": "XP",
-              "depart": "14:54"
+              "depart": "15:13"
             },
             {
               "location": "WP_YARD",
-              "arrive": "15:19"
+              "arrive": "15:38"
             }
           ]
         },
