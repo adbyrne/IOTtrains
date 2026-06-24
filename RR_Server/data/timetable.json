@@ -366,16 +366,16 @@
             {
               "location": "MC",
               "arrive": "08:01",
-              "depart": "08:01"
+              "depart": "08:11"
             },
             {
               "location": "SK",
-              "arrive": "08:12",
-              "depart": "08:22"
+              "arrive": "08:22",
+              "depart": "08:32"
             },
             {
               "location": "HC",
-              "arrive": "08:28"
+              "arrive": "08:38"
             }
           ]
         },
@@ -416,16 +416,16 @@
             {
               "location": "MC",
               "arrive": "16:36",
-              "depart": "16:36"
+              "depart": "16:46"
             },
             {
               "location": "SK",
-              "arrive": "16:47",
-              "depart": "16:57"
+              "arrive": "16:57",
+              "depart": "17:07"
             },
             {
               "location": "HC",
-              "arrive": "17:03"
+              "arrive": "17:13"
             }
           ]
         },
@@ -467,16 +467,16 @@
             {
               "location": "MC",
               "arrive": "04:46",
-              "depart": "04:46"
+              "depart": "04:56"
             },
             {
               "location": "SK",
-              "arrive": "04:57",
-              "depart": "05:37"
+              "arrive": "05:07",
+              "depart": "05:47"
             },
             {
               "location": "HC",
-              "arrive": "05:43"
+              "arrive": "05:53"
             }
           ]
         },
@@ -517,16 +517,16 @@
             {
               "location": "MC",
               "arrive": "02:31",
-              "depart": "02:31"
+              "depart": "02:41"
             },
             {
               "location": "SK",
-              "arrive": "02:48",
-              "depart": "02:58"
+              "arrive": "02:58",
+              "depart": "03:08"
             },
             {
               "location": "HC",
-              "arrive": "03:07"
+              "arrive": "03:17"
             }
           ]
         },
@@ -567,16 +567,16 @@
             {
               "location": "MC",
               "arrive": "12:00",
-              "depart": "12:00"
+              "depart": "12:10"
             },
             {
               "location": "SK",
-              "arrive": "12:17",
-              "depart": "12:27"
+              "arrive": "12:27",
+              "depart": "12:37"
             },
             {
               "location": "HC",
-              "arrive": "12:36"
+              "arrive": "12:46"
             }
           ]
         },
@@ -617,16 +617,16 @@
             {
               "location": "MC",
               "arrive": "21:15",
-              "depart": "21:15"
+              "depart": "21:25"
             },
             {
               "location": "SK",
-              "arrive": "21:32",
-              "depart": "21:42"
+              "arrive": "21:42",
+              "depart": "21:52"
             },
             {
               "location": "HC",
-              "arrive": "21:51"
+              "arrive": "22:01"
             }
           ]
         },
@@ -817,27 +817,27 @@
             {
               "location": "MC",
               "arrive": "09:27",
-              "depart": "09:27"
+              "depart": "09:37"
             },
             {
               "location": "JC",
-              "arrive": "09:32",
-              "depart": "09:42"
+              "arrive": "09:42",
+              "depart": "09:52"
             },
             {
               "location": "BB",
-              "arrive": "09:47",
-              "depart": "09:57"
+              "arrive": "09:57",
+              "depart": "10:07"
             },
             {
               "location": "XP",
-              "arrive": "09:59",
-              "depart": "10:09",
+              "arrive": "10:09",
+              "depart": "10:19",
               "note": "Wait for No. 1"
             },
             {
               "location": "WP",
-              "arrive": "10:18"
+              "arrive": "10:28"
             }
           ]
         },
@@ -868,26 +868,26 @@
             {
               "location": "MC",
               "arrive": "18:12",
-              "depart": "18:12"
+              "depart": "18:22"
             },
             {
               "location": "JC",
-              "arrive": "18:17",
-              "depart": "18:27"
+              "arrive": "18:27",
+              "depart": "18:37"
             },
             {
               "location": "BB",
-              "arrive": "18:32",
-              "depart": "18:42"
+              "arrive": "18:42",
+              "depart": "18:52"
             },
             {
               "location": "XP",
-              "arrive": "18:44",
-              "depart": "18:54"
+              "arrive": "18:54",
+              "depart": "19:04"
             },
             {
               "location": "WP",
-              "arrive": "19:03"
+              "arrive": "19:13"
             }
           ]
         },
@@ -918,27 +918,27 @@
             {
               "location": "MC",
               "arrive": "06:51",
-              "depart": "06:51"
+              "depart": "07:01"
             },
             {
               "location": "JC",
-              "arrive": "06:59",
-              "depart": "07:09"
+              "arrive": "07:09",
+              "depart": "07:19"
             },
             {
               "location": "BB",
-              "arrive": "07:17",
-              "depart": "07:27"
+              "arrive": "07:27",
+              "depart": "07:37"
             },
             {
               "location": "XP",
-              "arrive": "07:31",
-              "depart": "08:00",
+              "arrive": "07:41",
+              "depart": "08:10",
               "note": "Wait for No. 1"
             },
             {
               "location": "WP_YARD",
-              "arrive": "08:10"
+              "arrive": "08:20"
             }
           ]
         },
@@ -969,28 +969,28 @@
             {
               "location": "MC",
               "arrive": "04:07",
-              "depart": "04:07"
+              "depart": "04:17"
             },
             {
               "location": "JC",
-              "arrive": "04:15",
-              "depart": "04:27"
+              "arrive": "04:25",
+              "depart": "04:37"
             },
             {
               "location": "BB",
-              "arrive": "04:35",
-              "depart": "04:45",
+              "arrive": "04:45",
+              "depart": "04:55",
               "note": "Wait for No. 11"
             },
             {
               "location": "XP",
-              "arrive": "04:49",
-              "depart": "04:59",
+              "arrive": "04:59",
+              "depart": "05:09",
               "note": "Wait for No. 122"
             },
             {
               "location": "WP",
-              "arrive": "05:09"
+              "arrive": "05:19"
             }
           ]
         },
@@ -1021,27 +1021,27 @@
             {
               "location": "MC",
               "arrive": "13:44",
-              "depart": "13:44"
+              "depart": "13:54"
             },
             {
               "location": "JC",
-              "arrive": "13:52",
-              "depart": "14:02"
+              "arrive": "14:02",
+              "depart": "14:12"
             },
             {
               "location": "BB",
-              "arrive": "14:10",
-              "depart": "14:20"
+              "arrive": "14:20",
+              "depart": "14:30"
             },
             {
               "location": "XP",
-              "arrive": "14:24",
-              "depart": "14:34",
+              "arrive": "14:34",
+              "depart": "14:44",
               "note": "Wait for No. 122"
             },
             {
               "location": "WP",
-              "arrive": "14:44"
+              "arrive": "14:54"
             }
           ]
         },
@@ -1072,26 +1072,26 @@
             {
               "location": "MC",
               "arrive": "22:54",
-              "depart": "22:54"
+              "depart": "23:04"
             },
             {
               "location": "JC",
-              "arrive": "23:02",
-              "depart": "23:12"
+              "arrive": "23:12",
+              "depart": "23:22"
             },
             {
               "location": "BB",
-              "arrive": "23:20",
-              "depart": "23:30"
+              "arrive": "23:30",
+              "depart": "23:40"
             },
             {
               "location": "XP",
-              "arrive": "23:34",
-              "depart": "23:44"
+              "arrive": "23:44",
+              "depart": "23:54"
             },
             {
               "location": "WP",
-              "arrive": "23:54"
+              "arrive": "00:04"
             }
           ]
         },
@@ -1178,12 +1178,12 @@
           "schedule": [
             {
               "location": "XP",
-              "depart": "14:24",
+              "depart": "14:44",
               "note": "Pickup QM1 spur; Wait for No. 24"
             },
             {
               "location": "WP_YARD",
-              "arrive": "14:49"
+              "arrive": "15:09"
             }
           ]
         },
