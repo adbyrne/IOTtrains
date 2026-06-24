@@ -450,14 +450,12 @@
             },
             {
               "location": "XP",
-              "depart": "04:12",
-              "note": "Wait for No. 112"
+              "depart": "04:12"
             },
             {
               "location": "BB",
               "arrive": "04:15",
-              "depart": "04:25",
-              "note": "Wait for No. 22"
+              "depart": "04:25"
             },
             {
               "location": "JC",
@@ -467,16 +465,16 @@
             {
               "location": "MC",
               "arrive": "04:46",
-              "depart": "04:56"
+              "depart": "04:46"
             },
             {
               "location": "SK",
-              "arrive": "05:07",
-              "depart": "05:47"
+              "arrive": "04:57",
+              "depart": "05:27"
             },
             {
               "location": "HC",
-              "arrive": "05:53"
+              "arrive": "05:33"
             }
           ]
         },
@@ -985,8 +983,7 @@
             {
               "location": "XP",
               "arrive": "04:59",
-              "depart": "05:09",
-              "note": "Wait for No. 122"
+              "depart": "05:09"
             },
             {
               "location": "WP",
@@ -1036,8 +1033,7 @@
             {
               "location": "XP",
               "arrive": "14:34",
-              "depart": "14:44",
-              "note": "Wait for No. 122"
+              "depart": "14:44"
             },
             {
               "location": "WP",
@@ -1112,12 +1108,12 @@
           "schedule": [
             {
               "location": "XP",
-              "depart": "05:08",
+              "depart": "05:19",
               "note": "Pickup QM1 spur"
             },
             {
               "location": "WP_YARD",
-              "arrive": "05:33"
+              "arrive": "05:44"
             }
           ]
         },
@@ -1178,12 +1174,12 @@
           "schedule": [
             {
               "location": "XP",
-              "depart": "14:44",
-              "note": "Pickup QM1 spur; Wait for No. 24"
+              "depart": "14:54",
+              "note": "Pickup QM1 spur; follow No. 24"
             },
             {
               "location": "WP_YARD",
-              "arrive": "15:09"
+              "arrive": "15:19"
             }
           ]
         },
@@ -1217,11 +1213,11 @@
             },
             {
               "location": "XP",
-              "depart": "14:43"
+              "depart": "14:54"
             },
             {
               "location": "WP_YARD",
-              "arrive": "15:08"
+              "arrive": "15:19"
             }
           ]
         },
