@@ -789,6 +789,46 @@
           ]
         },
         {
+          "number": "151",
+          "class": 3,
+          "service": "Coke",
+          "direction": "N",
+          "days": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "schedule": [
+            {
+              "location": "WP_YARD",
+              "depart": "18:10"
+            },
+            {
+              "location": "XP",
+              "arrive": "18:40",
+              "depart": "19:08",
+              "note": "Wait for No. 4"
+            },
+            {
+              "location": "BB",
+              "depart": "19:22"
+            },
+            {
+              "location": "JC",
+              "depart": "19:40"
+            },
+            {
+              "location": "MC",
+              "arrive": "19:49",
+              "note": "Setout QM2 spur"
+            }
+          ]
+        },
+        {
           "number": "2",
           "class": 1,
           "service": "Pass",
@@ -1242,6 +1282,46 @@
             {
               "location": "WP_YARD",
               "arrive": "22:33"
+            }
+          ]
+        },
+        {
+          "number": "152",
+          "class": 3,
+          "service": "Coke",
+          "direction": "S",
+          "days": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "schedule": [
+            {
+              "location": "MC",
+              "depart": "20:40",
+              "note": "Pickup QM2 spur"
+            },
+            {
+              "location": "JC",
+              "arrive": "21:02",
+              "depart": "21:11",
+              "note": "Wait for No. 25"
+            },
+            {
+              "location": "BB",
+              "depart": "21:37"
+            },
+            {
+              "location": "XP",
+              "depart": "21:58"
+            },
+            {
+              "location": "WP_YARD",
+              "arrive": "22:23"
             }
           ]
         }

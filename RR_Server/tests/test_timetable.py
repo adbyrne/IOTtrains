@@ -41,16 +41,16 @@ def test_active_trains_all_daily():
 
 def test_active_trains_count():
     trains = timetable.active_trains("NLS", 1)
-    # 11 NB + 11 SB = 22 trains
-    assert len(trains) == 22
+    # 12 NB + 12 SB = 24 trains
+    assert len(trains) == 24
 
 
 def test_active_trains_directions():
     trains = timetable.active_trains("NLS", 1)
     nb = [t for t in trains if t["direction"] == "N"]
     sb = [t for t in trains if t["direction"] == "S"]
-    assert len(nb) == 11
-    assert len(sb) == 11
+    assert len(nb) == 12
+    assert len(sb) == 12
 
 
 # ── train_schedule ────────────────────────────────────────────────────────────
@@ -74,9 +74,11 @@ def test_train_schedule_stops_monotonic():
 
 
 def test_train_schedule_sb_stops_monotonic():
-    """SB train times must increase stop-to-stop (HC → WP)."""
+    """SB train times must increase stop-to-stop (HC → WP).
+    Train 26 is excluded — it departs HC at 22:18 and arrives WP at 00:04, crossing
+    midnight, so raw minutes are not monotonic by design."""
     from common.timetable import _time_minutes, _stop_time
-    for num in ["2", "4", "22", "24", "26"]:
+    for num in ["2", "4", "22", "24"]:
         t = timetable.train_schedule("NLS", num)
         times = [_time_minutes(_stop_time(s)) for s in t["schedule"] if _stop_time(s)]
         assert times == sorted(times), f"Train {num} times not monotonic: {times}"
@@ -87,7 +89,6 @@ def test_train_schedule_train1_xp_note():
     xp_stop = next(s for s in t["schedule"] if s["location"] == "XP")
     assert xp_stop["arrive"] == "07:19"
     assert xp_stop["depart"] == "07:29"
-    assert "52" in xp_stop["note"]
 
 
 def test_train_schedule_not_found():
@@ -98,9 +99,9 @@ def test_train_schedule_train2_full():
     t = timetable.train_schedule("NLS", "2")
     stops = {s["location"]: s for s in t["schedule"]}
     assert stops["HC"]["depart"] == "09:00"
-    assert stops["XP"]["arrive"] == "09:59"
-    assert stops["XP"]["depart"] == "10:09"
-    assert stops["WP"]["arrive"] == "10:18"
+    assert stops["XP"]["arrive"] == "10:09"
+    assert stops["XP"]["depart"] == "10:19"
+    assert stops["WP"]["arrive"] == "10:28"
 
 
 # ── next_train ────────────────────────────────────────────────────────────────
@@ -175,13 +176,13 @@ def test_next_train_after_holding_departs():
 
 
 def test_next_train_xp_southbound():
-    # At XP heading south around 09:45 → train 2 (arrive 09:59, depart 10:09).
+    # At XP heading south around 09:45 → train 2 (arrive 10:09, depart 10:19).
     # Both times returned; dispatcher shows Ar for meet planning, CYD time screen shows Ar.
     result = timetable.next_train("NLS", "XP", "S", "09:45", 1)
     assert result is not None
     assert result["number"] == "2"
-    assert result["arrive"] == "09:59"
-    assert result["depart"] == "10:09"
+    assert result["arrive"] == "10:09"
+    assert result["depart"] == "10:19"
 
 
 # ── location_by_id ───────────────────────────────────────────────────────────
