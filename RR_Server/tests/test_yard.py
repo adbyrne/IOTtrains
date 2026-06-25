@@ -359,3 +359,100 @@ class TestAutoNotifyYmArrival:
         mc = _make_mqtt_client_with_rules(state, {"auto_notify_ym_arrival": True})
         _inject_os(mc, dict(OS_XP_SOUTH_PAYLOAD, direction="N"))
         assert state.yard_notifications == []
+
+
+# ── §15 Equipment Status Tracking ────────────────────────────────────────────
+
+def _make_equipment_status():
+    return {
+        "engines":  {"21": {"status": "out", "rr_time": "08:00", "day": 1}},
+        "cabooses": {"13": {"status": "out", "rr_time": "08:00", "day": 1}},
+    }
+
+
+class TestEquipmentStatus:
+    def test_equipment_locks_on_consist_assignment(self, client):
+        from dispatcher.app import state as app_state
+        assert app_state.equipment_status["engines"]["21"]["status"] == "available"
+        assert app_state.equipment_status["cabooses"]["13"]["status"] == "available"
+        r = client.post("/api/yard/consist", json={
+            "train": "901", "state": "ready", "engine": "21", "caboose": "13",
+            "cars_loaded": 5, "cars_empty": 2, "track_id": "T1", "extra": False,
+        })
+        assert r.status_code == 200
+        assert app_state.equipment_status["engines"]["21"]["status"] == "out"
+        assert app_state.equipment_status["cabooses"]["13"]["status"] == "out"
+
+    def test_locked_equipment_excluded_from_available(self, client):
+        client.post("/api/yard/consist", json={
+            "train": "902", "state": "ready", "engine": "22", "caboose": "15",
+            "cars_loaded": 3, "cars_empty": 1, "track_id": "T2", "extra": False,
+        })
+        from dispatcher.app import state as app_state
+        available_engines = [
+            rn for rn, s in app_state.equipment_status["engines"].items()
+            if s["status"] == "available"
+        ]
+        available_cabooses = [
+            rn for rn, s in app_state.equipment_status["cabooses"].items()
+            if s["status"] == "available"
+        ]
+        assert "22" not in available_engines
+        assert "15" not in available_cabooses
+
+    def test_wp_southbound_os_report_returns_equipment(self):
+        s = AppState()
+        s.equipment_status = _make_equipment_status()
+        s.consists["3"] = {"train": "3", "engine": "21", "caboose": "13",
+                           "state": "ready", "extra": False}
+        mc = _make_real_mqtt_client(s)
+        _inject_os(mc, {"station_id": "WP", "train": "3", "section": 0, "direction": "S",
+                         "extra": False, "work_extra": False, "rr_time": "10:30", "day": 1})
+        assert s.equipment_status["engines"]["21"]["status"] == "being_serviced"
+        assert s.equipment_status["cabooses"]["13"]["status"] == "awaiting_paperwork"
+
+    def test_xp_southbound_does_not_return_equipment(self):
+        s = AppState()
+        s.equipment_status = _make_equipment_status()
+        s.consists["9"] = {"train": "9", "engine": "21", "caboose": "13",
+                            "state": "ready", "extra": False}
+        mc = _make_real_mqtt_client(s)
+        _inject_os(mc, {"station_id": "XP", "train": "9", "section": 0, "direction": "S",
+                         "extra": False, "work_extra": False, "rr_time": "11:05", "day": 1})
+        assert s.equipment_status["engines"]["21"]["status"] == "out"
+        assert s.equipment_status["cabooses"]["13"]["status"] == "out"
+
+    def test_caboose_paperwork_endpoint(self, client):
+        from dispatcher.app import state as app_state
+        app_state.equipment_status["cabooses"]["14"] = {
+            "status": "awaiting_paperwork", "rr_time": "10:00", "day": 1,
+        }
+        r = client.post("/api/yard/caboose_paperwork", json={"road_number": "14"})
+        assert r.status_code == 200
+        assert app_state.equipment_status["cabooses"]["14"]["status"] == "available"
+        # 404 if already back to available
+        r2 = client.post("/api/yard/caboose_paperwork", json={"road_number": "14"})
+        assert r2.status_code == 404
+
+    def test_hostler_roundhouse_endpoint(self, client):
+        from dispatcher.app import state as app_state
+        app_state.equipment_status["engines"]["30"] = {
+            "status": "being_serviced", "rr_time": "10:00", "day": 1,
+        }
+        r = client.post("/api/hostler/roundhouse", json={"road_number": "30"})
+        assert r.status_code == 200
+        assert app_state.equipment_status["engines"]["30"]["status"] == "available"
+        # 404 if already available
+        r2 = client.post("/api/hostler/roundhouse", json={"road_number": "30"})
+        assert r2.status_code == 404
+
+    def test_out_of_service_excludes_from_selector(self, client):
+        from dispatcher.app import state as app_state
+        app_state.equipment_status["engines"]["46"] = {
+            "status": "out_of_service", "rr_time": None, "day": None,
+        }
+        available_engines = [
+            rn for rn, s in app_state.equipment_status["engines"].items()
+            if s["status"] == "available"
+        ]
+        assert "46" not in available_engines

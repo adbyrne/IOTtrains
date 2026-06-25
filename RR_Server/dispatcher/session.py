@@ -45,6 +45,7 @@ class AppState:
     yard_notifications: list = field(default_factory=list)  # newest first, capped at YARD_NOTIF_MAX
     yard_tracks: list = field(default_factory=list)         # loaded from yard.json at startup
     roster: dict = field(default_factory=dict)               # {"engines": [...], "cabooses": [...]}, loaded from roster.json at startup
+    equipment_status: dict = field(default_factory=dict)    # {"engines": {rn: {status, rr_time, day}}, "cabooses": {...}}
     extra_seq: int = 0                                      # placeholder "XTRA{n}" id counter
     _clients: set = field(default_factory=set)
 

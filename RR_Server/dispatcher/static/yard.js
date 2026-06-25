@@ -42,6 +42,7 @@ let reconnectTimer = null;
 let consists = {};            // train/engine number -> consist dict
 let yardTracks = [];
 let roster = { engines: [], cabooses: [] };
+let equipmentStatus = { engines: {}, cabooses: {} };
 let yardNotifications = [];
 let coeTrains = [];
 let yardDepartures = [];
@@ -63,10 +64,11 @@ function connect() {
         let event;
         try { event = JSON.parse(evt.data); } catch { return; }
         switch (event.type) {
-            case 'initial_state':     handleInitialState(event);   break;
-            case 'clock_update':      updateClock(event.clock);    break;
-            case 'consist_update':    handleConsistUpdate(event);  break;
-            case 'yard_notification': handleYardNotification(event); break;
+            case 'initial_state':          handleInitialState(event);          break;
+            case 'clock_update':           updateClock(event.clock);           break;
+            case 'consist_update':         handleConsistUpdate(event);         break;
+            case 'yard_notification':      handleYardNotification(event);      break;
+            case 'equipment_status_update': handleEquipmentStatusUpdate(event); break;
         }
     };
 
@@ -79,12 +81,13 @@ function connect() {
 }
 
 function handleInitialState(event) {
-    consists         = event.consists || {};
-    yardTracks       = event.yard_tracks || [];
-    roster           = event.roster || { engines: [], cabooses: [] };
+    consists          = event.consists || {};
+    yardTracks        = event.yard_tracks || [];
+    roster            = event.roster || { engines: [], cabooses: [] };
+    equipmentStatus   = event.equipment_status || { engines: {}, cabooses: {} };
     yardNotifications = event.yard_notifications || [];
-    coeTrains        = event.coe_trains || [];
-    yardDepartures   = event.yard_departures || [];
+    coeTrains         = event.coe_trains || [];
+    yardDepartures    = event.yard_departures || [];
 
     for (const n of yardNotifications) {
         if (n.type === 'annulment') annulledTrains.add(n.train);
@@ -95,17 +98,21 @@ function handleInitialState(event) {
     buildTrackSelect(document.getElementById('ce-track-select'),
         TRACK_BOARD_EXCLUDE_FN.concat(['interchange_east', 'interchange_west', 'co_siding']));
 
-    const roadEngines = roster.engines.filter(e => e.road_eligible !== false);
-    buildRosterSelect(document.getElementById('cs-engine-select'), roadEngines);
-    buildRosterSelect(document.getElementById('cs-caboose-select'), roster.cabooses);
-    buildRosterSelect(document.getElementById('ce-engine-select'), roadEngines);
-    buildRosterSelect(document.getElementById('ce-caboose-select'), roster.cabooses);
+    rebuildRosterSelects();
 
     updateClock(event.clock);
     renderDeparting();
     renderTrackBoard();
     renderArriving();
     renderCoeFooter();
+}
+
+function handleEquipmentStatusUpdate(event) {
+    const { kind, road_number, status } = event;
+    const key = kind + 's';
+    if (equipmentStatus[key]) equipmentStatus[key][road_number] = status;
+    rebuildRosterSelects();
+    renderArriving();
 }
 
 function handleConsistUpdate(event) {
@@ -280,6 +287,14 @@ function renderTrackBoard() {
 
 // ── Arriving trains panel ─────────────────────────────────────────────────────
 
+function _paperworkBtn(train) {
+    const c = consists[train];
+    if (!c || !c.caboose) return '';
+    const cab = equipmentStatus.cabooses[c.caboose];
+    if (!cab || cab.status !== 'awaiting_paperwork') return '';
+    return `<button class="btn yard-action-btn" data-action="paperwork" data-caboose="${c.caboose}">Paperwork Delivered</button>`;
+}
+
 function renderArriving() {
     const listEl = document.getElementById('arriving-list');
     const entries = yardNotifications.filter(n => n.type === 'arrival' || n.type === 'annulment');
@@ -290,7 +305,8 @@ function renderArriving() {
             }
             const eta = n.expected_rr_time ? `ETA ${fmtTime(n.expected_rr_time)}` : '';
             const trainId = trainIdLabel(n.train, n.direction, false);
-            return `<div class="yard-arrival-entry">&#9658; ${trainId} — ${eta}</div>`;
+            const btn = _paperworkBtn(n.train);
+            return `<div class="yard-arrival-entry">&#9658; ${trainId} — ${eta}${btn ? ' ' + btn : ''}</div>`;
         }).join('')
         : '<div class="yard-card muted">No arrivals expected.</div>';
 }
@@ -342,19 +358,25 @@ function setSelectedTrack(containerEl, trackId) {
 
 // ── Roster select widget (Engine / Caboose) ─────────────────────────────────
 // Same tap-to-select pattern as the Track selector above, built from
-// roster.json instead of yard.json. Engine grids are pre-filtered by the
-// caller to road_eligible entries; caboose grids show the full roster.
+// roster.json instead of yard.json. Only entries with status === "available"
+// are shown; hidden (not grayed) when out, being_serviced, etc.
 
-function buildRosterSelect(containerEl, items) {
+function buildRosterSelect(containerEl, items, statusMap) {
+    const prev = containerEl.querySelector('.track-select-btn.active')?.dataset.rosterNumber || null;
+    containerEl.innerHTML = '';
+    delete containerEl.dataset.built;
     if (containerEl.dataset.built === '1') return;
     containerEl.dataset.built = '1';
     for (const item of items) {
+        const st = (statusMap || {})[item.road_number];
+        if (st && st.status !== 'available') continue;
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'btn track-select-btn';
         btn.textContent = item.road_number;
         btn.title = item.type ? `${item.road_name} ${item.road_number} (${item.type})` : `${item.road_name} ${item.road_number}`;
         btn.dataset.rosterNumber = item.road_number;
+        if (item.road_number === prev) btn.classList.add('active');
         containerEl.appendChild(btn);
     }
     containerEl.addEventListener('click', e => {
@@ -363,6 +385,14 @@ function buildRosterSelect(containerEl, items) {
         containerEl.querySelectorAll('.track-select-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
     });
+}
+
+function rebuildRosterSelects() {
+    const roadEngines = roster.engines.filter(e => e.road_eligible !== false);
+    buildRosterSelect(document.getElementById('cs-engine-select'), roadEngines, equipmentStatus.engines);
+    buildRosterSelect(document.getElementById('cs-caboose-select'), roster.cabooses, equipmentStatus.cabooses);
+    buildRosterSelect(document.getElementById('ce-engine-select'), roadEngines, equipmentStatus.engines);
+    buildRosterSelect(document.getElementById('ce-caboose-select'), roster.cabooses, equipmentStatus.cabooses);
 }
 
 function getSelectedRoster(containerEl) {
@@ -586,6 +616,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const action = btn.dataset.action;
         if (action === 'build-scheduled') openScheduledModal(train);
         else if (action === 'build-extra' || action === 'assign-engine') openExtraModal(train);
+    });
+
+    document.getElementById('arriving-list').addEventListener('click', async e => {
+        const btn = e.target.closest('.yard-action-btn[data-action="paperwork"]');
+        if (!btn) return;
+        const caboose = btn.dataset.caboose;
+        btn.disabled = true;
+        try {
+            await fetch('/api/yard/caboose_paperwork', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ road_number: caboose }),
+            });
+        } finally {
+            btn.disabled = false;
+        }
     });
 
     connect();

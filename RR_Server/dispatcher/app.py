@@ -78,6 +78,22 @@ _owner_username: str = ""
 _owner_password: str = ""
 
 
+async def _set_equipment_status(
+    kind: str, road_number: str, status: str,
+    rr_time: str | None = None, day: int | None = None,
+) -> None:
+    """Update one equipment entry in state, publish retained MQTT, and broadcast."""
+    kind_key = kind + "s"  # "engine" → "engines", "caboose" → "cabooses"
+    if road_number not in state.equipment_status.get(kind_key, {}):
+        return
+    entry = {"status": status, "rr_time": rr_time, "day": day}
+    state.equipment_status[kind_key][road_number] = entry
+    if mqtt_client is not None:
+        mqtt_client.publish_roster_status(kind, road_number, entry)
+    await state.broadcast({"type": "equipment_status_update", "kind": kind,
+                           "road_number": road_number, "status": entry})
+
+
 def _require_owner(credentials: HTTPBasicCredentials = Depends(_basic_security)) -> None:
     ok_user = secrets.compare_digest(credentials.username.encode(), _owner_username.encode())
     ok_pass = secrets.compare_digest(credentials.password.encode(), _owner_password.encode())
@@ -165,6 +181,7 @@ def build_initial_state() -> dict:
         "consists": state.consists,
         "yard_tracks": state.yard_tracks,
         "roster": state.roster,
+        "equipment_status": state.equipment_status,
         "yard_notifications": state.yard_notifications,
         "coe_trains": timetable.coe_schedule(state.clock.get("day") or 1),
         "yard_departures": build_yard_departures(state.clock.get("day") or 1),
@@ -232,6 +249,12 @@ async def lifespan(app: FastAPI):
         state.roster = {
             "engines": roster_data.get("engines", []),
             "cabooses": roster_data.get("cabooses", []),
+        }
+        state.equipment_status = {
+            "engines":  {e["road_number"]: {"status": "available", "rr_time": None, "day": None}
+                         for e in state.roster["engines"]},
+            "cabooses": {c["road_number"]: {"status": "available", "rr_time": None, "day": None}
+                         for c in state.roster["cabooses"]},
         }
     except (FileNotFoundError, json.JSONDecodeError) as e:
         log.error("roster.json error: %s", e)
@@ -464,6 +487,17 @@ async def yard_consist(request: Request):
     entry = state.record_consist(train, payload)
     await state.broadcast({"type": "consist_update", "consist": entry})
 
+    # Lock engine and caboose as soon as they're assigned to any open consist.
+    clock = state.clock
+    rr_time_str = f"{clock.get('hour', 0):02d}:{clock.get('minute', 0):02d}"
+    day_val = clock.get("day")
+    for field_key, kind in (("engine", "engine"), ("caboose", "caboose")):
+        rn = str(body.get(field_key) or "")
+        kind_key = kind + "s"
+        if (rn and rn in state.equipment_status.get(kind_key, {})
+                and state.equipment_status[kind_key][rn]["status"] == "available"):
+            await _set_equipment_status(kind, rn, "out", rr_time_str, day_val)
+
     return JSONResponse({"ok": True, "consist": entry})
 
 
@@ -666,6 +700,65 @@ async def delete_timetable_train(request: Request, _=Depends(_require_owner)):
         timetable.save(data)
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
+    return JSONResponse({"ok": True})
+
+
+@app.post("/api/yard/caboose_paperwork")
+async def caboose_paperwork(request: Request):
+    body = await request.json()
+    road_number = str(body.get("road_number", ""))
+    if not road_number:
+        return JSONResponse({"error": "missing road_number"}, status_code=400)
+    entry = state.equipment_status.get("cabooses", {}).get(road_number)
+    if entry is None:
+        return JSONResponse({"error": "unknown road_number"}, status_code=404)
+    if entry["status"] != "awaiting_paperwork":
+        return JSONResponse({"error": "caboose is not awaiting_paperwork"}, status_code=404)
+    clock = state.clock
+    await _set_equipment_status(
+        "caboose", road_number, "available",
+        f"{clock.get('hour', 0):02d}:{clock.get('minute', 0):02d}", clock.get("day"),
+    )
+    return JSONResponse({"ok": True})
+
+
+@app.post("/api/hostler/roundhouse")
+async def hostler_roundhouse(request: Request):
+    body = await request.json()
+    road_number = str(body.get("road_number", ""))
+    if not road_number:
+        return JSONResponse({"error": "missing road_number"}, status_code=400)
+    entry = state.equipment_status.get("engines", {}).get(road_number)
+    if entry is None:
+        return JSONResponse({"error": "unknown road_number"}, status_code=404)
+    if entry["status"] != "being_serviced":
+        return JSONResponse({"error": "engine is not being_serviced"}, status_code=404)
+    clock = state.clock
+    await _set_equipment_status(
+        "engine", road_number, "available",
+        f"{clock.get('hour', 0):02d}:{clock.get('minute', 0):02d}", clock.get("day"),
+    )
+    return JSONResponse({"ok": True})
+
+
+@app.get("/api/equipment_status")
+async def get_equipment_status(_=Depends(_require_owner)):
+    return JSONResponse({"equipment_status": state.equipment_status})
+
+
+@app.post("/api/equipment_status")
+async def post_equipment_status(request: Request, _=Depends(_require_owner)):
+    body = await request.json()
+    kind = body.get("kind", "")
+    road_number = str(body.get("road_number", ""))
+    out_of_service = bool(body.get("out_of_service", False))
+    if kind not in ("engine", "caboose"):
+        return JSONResponse({"error": "kind must be engine or caboose"}, status_code=400)
+    kind_key = kind + "s"
+    if road_number not in state.equipment_status.get(kind_key, {}):
+        return JSONResponse({"error": "unknown road_number"}, status_code=404)
+    new_status = "out_of_service" if out_of_service else "available"
+    await _set_equipment_status(kind, road_number, new_status)
     return JSONResponse({"ok": True})
 
 

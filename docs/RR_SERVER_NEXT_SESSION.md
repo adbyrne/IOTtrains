@@ -1,6 +1,6 @@
 # RR_Server — Next Session Plan
 
-_Updated 2026-06-22_
+_Updated 2026-06-25_
 
 ---
 
@@ -9,40 +9,59 @@ _Updated 2026-06-22_
 | Item | State |
 |------|-------|
 | Engine/caboose roster, tap-to-select (`YARDMASTER_DESIGN.md` §14) | ✅ Implemented, tested, committed (`5ea3248`) |
-| Equipment status tracking + Hostler role (§15) | 📝 Designed, **not implemented** — full spec in `YARDMASTER_DESIGN.md` §15 |
-| Yard CYD firmware (renamed from Hostler CYD) | 📝 Scoped in §15.5 — shared device, job-select screen; only the Hostler job specified |
-| Ice House yard job | 🔭 Identified only — cleaning/pre-icing/post-icing, time-delayed, not strictly ordered. Needs its own research/design session before it touches §15 or the Yard CYD firmware at all |
-| Crew job descriptions (road crew, mine crew, WP local, helper BB–JC, ice house, hostler) | ⏸ Not started — got sidetracked into the roster/§15 design thread this session |
-| Test suite | 157 passing (`pytest` in `RR_Server/`), all green |
+| Equipment status tracking + Hostler role (§15) | ✅ Implemented, tested, committed (this session) |
+| Yard CYD firmware (Hostler job) | 📝 Scoped in §15.5 — blocked on hardware |
+| Ice House yard job | 🔭 Identified only — needs its own research/design session |
+| Helper duty digital workflow | 📝 Workflow defined this session — needs design before implementation (see below) |
+| Crew job descriptions | ⏸ Not started — needs scoping conversation |
+| Test suite | 164 passing (`pytest` in `RR_Server/`), all green |
 
 ---
 
-## Priority 1 — Implement §15 (Equipment Status Tracking)
+## Priority 1 — Helper duty digital workflow (design session required first)
 
-Can be built and tested headless — no new hardware needed for this part. Full spec: `YARDMASTER_DESIGN.md` §15.1–15.4, §15.6–15.7.
+Helper duty (an engine assisting a heavy train up the BB–JC grade) now has a defined operational workflow but no implementation. A design session is needed before any code is written.
 
-- `AppState.equipment_status` dict, loaded `available` for every roster entry at startup
-- MQTT: `MQTTClient.publish_roster_status()`, retained, topics `trains/roster/{engine,caboose}/{road_number}/status`
-- Lock trigger: any open consist assignment (`assembling`/`car_block_ready`/`ready`) sets `out` — wire into the existing `/api/yard/consist` path
-- Return trigger: OS report handler (`mqtt_client.py`) gains a `station_id == "WP"` + `direction == "S"` case — looks up the consist for that train, sets engine → `being_serviced`, caboose → `awaiting_paperwork`. **Do not touch the existing XP-southbound auto-notify case** — that stays exactly as-is, it's a different concern (early heads-up vs. actual return)
-- New endpoints: `POST /api/yard/caboose_paperwork`, `POST /api/hostler/roundhouse` (§15.3)
-- YM UI: roster selector grids filter on live `status` now, not just `road_eligible` (§15.4) — hidden, not grayed-out
-- YM UI: "Paperwork Delivered" button on Arriving Trains tiles once that consist's equipment has actually returned (§15.4)
-- Owner `/manage`: new Equipment Status table + out-of-service toggle, owner-only (§15.6)
-- 7 new tests specified in §15.7 — write these alongside the implementation, not after
+### Confirmed workflow
+
+1. **Dispatcher signals YM** that a helper is needed — dispatcher-initiated notification (inverse of the existing YM→Dispatcher extra request flow; similar to §6.3 Path C)
+2. **YM assigns an engine** — engine locks to `out` at assignment time (same lock trigger as §15, but needs a dedicated assignment path since the helper travels light — no caboose, no cars)
+3. **TO #1 — Dispatcher issues running extra** (Form G) to move the engine light from WP to helper location (e.g., BB); white extra markers indicate it is an extra
+4. **TO #2 — Helper duty order** — authorizes the engine to assist a specific train between two points; **form TBD** (check OPSIG rules book — may be Form C "right over another train," a specific helper rule, or a new TO type)
+5. **TO #3 — Dispatcher issues running extra** (Form G) to return engine to WP
+6. Crew OSes at WP southbound → engine → `being_serviced` → hostler → `available` (§15 already handles this tail end)
+
+### Open design questions
+
+- **Dispatcher UI**: what button/panel triggers the "helper needed" signal to YM? Probably a new notification type on the dispatcher page, mirroring how the dispatcher receives extra requests
+- **YM UI**: how does the YM assign the helper engine? The current consist modal assumes a full train. Options: a "light engine" consist flag, a dedicated helper assignment panel, or a simplified modal with engine-only (no caboose/cars fields)
+- **Helper duty TO form**: research in OPSIG rules book (`/home/abyrne/Documents/Trains/OPSIG/19copythreewest/`) — determines what fields the TO dialog needs and whether a new `to_type` is required
+- **Lock timing**: engine must lock to `out` at YM assignment, before TO #1 is issued — the assignment step (not the first TO) is the trigger
+
+### What is already in place
+
+- `equipment_status` field/filter is already general-purpose — any path that sets an engine to `out` makes it disappear from the road selector, no rework needed
+- `running_extra` TO type (Form G) handles TO #1 and TO #3 with no changes
+- WP southbound return trigger and hostler roundhouse flow handle the full return cycle
+
+---
 
 ## Priority 2 — Yard CYD firmware (Hostler job only)
 
 **Blocked on hardware** — needs a physical CYD in hand for bench testing (same pattern as Station_OS's early "hardware tested" commits). New PlatformIO project `IOTtrains/YardCYD/`, stack mirrors Station_OS minus the PCA9685 servo dependency. Job-select home screen with Hostler as the only real job; Ice House gets a placeholder until its own design lands. Full spec: §15.5.
 
-Don't start this until Priority 1 is merged — the firmware needs the `trains/roster/engine/+/status` topic and the roundhouse-confirm flow to actually exist server-side first.
+Server-side prerequisites are now complete (§15 implemented this session).
+
+---
 
 ## Priority 3 — Crew job descriptions
 
 Still entirely undiscussed beyond the job names themselves. Needs a scoping conversation before any writing starts:
 - Destination: new doc? Expand `NYE_OPERATIONS.md`? Fold into the `controlsystem/` web tour?
 - Jobs to cover: road crew, mine crew, WP local, helper service (BB–JC, optional/session-attendance-dependent), ice house switching, hostler — "there may be more jobs added later"
-- User welcomed graphics suggestions — not yet discussed what form those would take
+- Helper duty workflow (Priority 1 above) should be resolved first so the helper crew description is accurate
+
+---
 
 ## Priority 4 — Ice House job design (separate session, explicitly deferred)
 
@@ -53,5 +72,6 @@ User: "will need research and discussion in its own chat." Open questions going 
 ## Notes carried from this session
 
 - `roster.json` engines 10/11/12/14 (the four 0-6-0 switchers) stay `road_eligible: false` and excluded from road-train selectors — unaffected by §15, still yard/mine-only and outside the digital consist system.
-- Helper-duty locking an engine (mentioned as a reason for "hidden, not grayed-out" in §15.4) is **not** wired up yet — deferred until helper duty itself has a digital workflow. The status field/filter is general enough to support it later without rework.
+- `equipment_status` is keyed as nested dict `{"engines": {rn: {...}}, "cabooses": {rn: {...}}}` — road numbers 10/11/12/14 appear in both lists so a flat dict is not viable.
 - IOTInventory: 11 CYDs in stock (`ESP32-2432S028R`, pk=2) as of 2026-06-22, against 7 needed for stations — check current stock again before any new purchase for Yard CYD / spares.
+- Car/industry database (car types required per industry) deferred to the management module — YM does not need this operationally, it is an owner planning tool.

@@ -100,6 +100,21 @@
         </div>
     </div>
 
+    <!-- ── Equipment Status ─────────────────────────────────── -->
+    <div class="manage-panel">
+        <div class="manage-panel-header">Equipment Status</div>
+        <div class="manage-panel-body">
+            <p class="muted manage-desc">Mark equipment out of service to hide it from the Yardmaster's consist selector. Out-of-service equipment is excluded regardless of its position in the return cycle.</p>
+            <table id="equip-status-table" class="tt-table">
+                <thead>
+                    <tr><th>Type</th><th>Road No.</th><th>Status</th><th>Out of Service</th></tr>
+                </thead>
+                <tbody id="equip-status-tbody"></tbody>
+            </table>
+            <span id="equip-status-msg"></span>
+        </div>
+    </div>
+
     <!-- ── Train Schedules ───────────────────────────────────── -->
     <div class="manage-panel">
         <div class="manage-panel-header">
@@ -579,11 +594,61 @@ document.getElementById('btn-delete-train').onclick = async () => {
     }
 };
 
+// ── Equipment Status ──────────────────────────────────────────────────────────
+
+const STATUS_LABELS = {
+    available:          'Available',
+    out:                'Out (on road)',
+    being_serviced:     'Being serviced',
+    awaiting_paperwork: 'Awaiting paperwork',
+    out_of_service:     'Out of service',
+};
+
+async function loadEquipmentStatus() {
+    const r = await fetch('/api/equipment_status');
+    if (!r.ok) { console.error('equipment_status load failed'); return; }
+    const { equipment_status } = await r.json();
+    const tbody = document.getElementById('equip-status-tbody');
+    tbody.innerHTML = '';
+    for (const [kind, entries] of [['engine', equipment_status.engines], ['caboose', equipment_status.cabooses]]) {
+        for (const [rn, s] of Object.entries(entries || {})) {
+            const isOOS = s.status === 'out_of_service';
+            const tr = document.createElement('tr');
+            tr.innerHTML =
+                `<td>${kind.charAt(0).toUpperCase() + kind.slice(1)}</td>` +
+                `<td>${rn}</td>` +
+                `<td>${STATUS_LABELS[s.status] || s.status}</td>` +
+                `<td><label class="radio-item"><input type="checkbox" data-kind="${kind}" data-rn="${rn}"${isOOS ? ' checked' : ''}> Out of service</label></td>`;
+            tbody.appendChild(tr);
+        }
+    }
+    tbody.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+        cb.onchange = async () => {
+            const msgEl = document.getElementById('equip-status-msg');
+            try {
+                const r = await fetch('/api/equipment_status', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ kind: cb.dataset.kind, road_number: cb.dataset.rn, out_of_service: cb.checked }),
+                });
+                const body = await r.json();
+                if (!r.ok) { msgEl.textContent = body.error || 'Error'; msgEl.className = 'form-err'; return; }
+                msgEl.textContent = 'Updated';
+                msgEl.className = 'form-ok';
+                await loadEquipmentStatus();
+            } catch {
+                msgEl.textContent = 'Request failed'; msgEl.className = 'form-err';
+            }
+        };
+    });
+}
+
 // ── Init ─────────────────────────────────────────────────────────────────────
 
 loadRules();
 loadForms();
 loadTimetable();
+loadEquipmentStatus();
 </script>
 </body>
 </html>

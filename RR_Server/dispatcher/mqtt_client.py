@@ -87,6 +87,10 @@ class MQTTClient:
     def publish_yard_notification(self, payload: dict) -> None:
         self._client.publish(TOPIC_YARD_NOTIFICATION, json.dumps(payload), qos=1)
 
+    def publish_roster_status(self, kind: str, road_number: str, payload: dict) -> None:
+        topic = f"trains/roster/{kind}/{road_number}/status"
+        self._client.publish(topic, json.dumps(payload), qos=1, retain=True)
+
     # ── Background thread ────────────────────────────────────────────────────
 
     def _run(self) -> None:
@@ -195,6 +199,29 @@ class MQTTClient:
             if len(self._state.os_log) > OS_LOG_MAX:
                 self._state.os_log = self._state.os_log[:OS_LOG_MAX]
             event = {"type": "os_report", "entry": entry}
+
+            # Equipment return: crew OS at WP southbound = train physically in yard.
+            # Move engine to being_serviced, caboose to awaiting_paperwork.
+            if entry["direction"] == "S" and entry["station_id"] == "WP":
+                consist = self._state.consists.get(entry["train"])
+                if consist:
+                    rr_t, day = entry["rr_time"], entry["day"]
+                    for rn, new_status, kind, kind_key in [
+                        (str(consist.get("engine") or ""), "being_serviced",  "engine",  "engines"),
+                        (str(consist.get("caboose") or ""), "awaiting_paperwork", "caboose", "cabooses"),
+                    ]:
+                        if rn and rn in self._state.equipment_status.get(kind_key, {}):
+                            new_entry = {"status": new_status, "rr_time": rr_t, "day": day}
+                            self._state.equipment_status[kind_key][rn] = new_entry
+                            self.publish_roster_status(kind, rn, new_entry)
+                            if self._loop and not self._stop.is_set():
+                                asyncio.run_coroutine_threadsafe(
+                                    self._state.broadcast({
+                                        "type": "equipment_status_update",
+                                        "kind": kind, "road_number": rn, "status": new_entry,
+                                    }),
+                                    self._loop,
+                                )
 
             # Auto-notify YM of arrival when enabled (owner-configurable in
             # /manage, default off — manual Notify YM is the default flow;
